@@ -60,6 +60,22 @@ return [
             'report' => false,
         ],
 
+        'transcriptions' => [
+            'driver' => env('TRANSCRIBE_STORAGE_DRIVER', 'local'),
+            'root' => storage_path('app/private/transcriptions'),
+            'serve' => true,
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => env('TRANSCRIBE_S3_BUCKET', env('AWS_BUCKET')),
+            'url' => env('TRANSCRIBE_S3_URL', env('AWS_URL')),
+            'endpoint' => env('TRANSCRIBE_S3_ENDPOINT', env('AWS_ENDPOINT')),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+        ],
+
     ],
 
     /*
