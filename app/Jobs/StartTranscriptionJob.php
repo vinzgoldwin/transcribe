@@ -16,6 +16,8 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
@@ -34,9 +36,12 @@ class StartTranscriptionJob implements ShouldQueue
      */
     public array $backoff = [60, 300, 600];
 
-    public int $timeout = 1200;
+    public int $timeout;
 
-    public function __construct(public int $transcriptionId) {}
+    public function __construct(public int $transcriptionId)
+    {
+        $this->timeout = (int) config('transcribe.queue.start_timeout_seconds', 3600);
+    }
 
     public function handle(MediaProcessor $mediaProcessor, SilenceDetector $silenceDetector, ChunkBuilder $chunkBuilder): void
     {
@@ -46,26 +51,43 @@ class StartTranscriptionJob implements ShouldQueue
             return;
         }
 
-        $disk = Storage::disk($transcription->storage_disk);
+        $diskName = (string) $transcription->storage_disk;
+        $disk = Storage::disk($diskName);
+        $driver = (string) config("filesystems.disks.{$diskName}.driver", 'local');
         $tempDirectory = rtrim((string) config('transcribe.temp_directory'), '/').'/'.$transcription->public_id;
 
         File::ensureDirectoryExists($tempDirectory);
 
         $sourceLocalPath = $tempDirectory.'/source.mp4';
-        $this->streamToLocal($disk, $transcription->storage_path, $sourceLocalPath);
+        Log::info('Transcription start: downloading source', [
+            'transcription_id' => $transcription->id,
+            'public_id' => $transcription->public_id,
+            'storage_path' => $transcription->storage_path,
+            'driver' => $driver,
+        ]);
+        $this->downloadToLocal($disk, $transcription->storage_path, $sourceLocalPath, $driver);
 
         $audioLocalPath = $tempDirectory.'/audio.wav';
         $audioStoragePath = $transcription->audio_path ?: $this->audioStoragePath($transcription);
 
         if (! $transcription->audio_path || ! $disk->exists($transcription->audio_path)) {
+            Log::info('Transcription start: extracting audio', [
+                'transcription_id' => $transcription->id,
+                'public_id' => $transcription->public_id,
+            ]);
             $mediaProcessor->extractAudio($sourceLocalPath, $audioLocalPath);
             $this->storeFromLocal($disk, $audioLocalPath, $audioStoragePath);
             $transcription->audio_path = $audioStoragePath;
         } else {
-            $this->streamToLocal($disk, $audioStoragePath, $audioLocalPath);
+            $this->downloadToLocal($disk, $audioStoragePath, $audioLocalPath, $driver);
         }
 
         $duration = $mediaProcessor->probeDuration($audioLocalPath);
+        Log::info('Transcription start: detecting silence', [
+            'transcription_id' => $transcription->id,
+            'public_id' => $transcription->public_id,
+            'duration_seconds' => $duration,
+        ]);
 
         $silenceOutput = $mediaProcessor->detectSilence(
             $audioLocalPath,
@@ -127,20 +149,134 @@ class StartTranscriptionJob implements ShouldQueue
             ProcessTranscriptionChunkJob::dispatch($chunk->id);
         }
 
+        Log::info('Transcription start: queued chunks', [
+            'transcription_id' => $transcription->id,
+            'public_id' => $transcription->public_id,
+            'chunks_total' => count($chunks),
+        ]);
+
         File::delete([$sourceLocalPath, $audioLocalPath]);
     }
 
     protected function audioStoragePath(Transcription $transcription): string
     {
-        return "transcriptions/{$transcription->public_id}/audio.wav";
+        return $this->storagePrefix()."/{$transcription->public_id}/audio.wav";
     }
 
     protected function chunkStoragePath(Transcription $transcription, int $sequence): string
     {
-        return "transcriptions/{$transcription->public_id}/chunks/{$sequence}.wav";
+        return $this->storagePrefix()."/{$transcription->public_id}/chunks/{$sequence}.wav";
     }
 
-    protected function streamToLocal(FilesystemAdapter $disk, string $storagePath, string $localPath): void
+    protected function storagePrefix(): string
+    {
+        return trim((string) config('transcribe.storage_prefix', 'transcriptions'), '/');
+    }
+
+    protected function downloadToLocal(FilesystemAdapter $disk, string $storagePath, string $localPath, string $driver): void
+    {
+        $maxAttempts = max(1, (int) config('transcribe.download.max_attempts', 3));
+        $backoffSeconds = max(1, (int) config('transcribe.download.backoff_seconds', 5));
+        $maxInMemoryBytes = max(1, (int) config('transcribe.download.max_in_memory_mb', 200)) * 1024 * 1024;
+        $useTemporaryUrl = (bool) config('transcribe.download.use_temporary_url', true);
+        $expectedSize = null;
+
+        try {
+            $expectedSize = $disk->size($storagePath);
+        } catch (Throwable $exception) {
+            Log::warning('Unable to resolve storage size before download', [
+                'storage_path' => $storagePath,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                File::ensureDirectoryExists(dirname($localPath));
+                File::delete($localPath);
+
+                if ($expectedSize !== null && $expectedSize > $maxInMemoryBytes) {
+                    $this->downloadViaStream($disk, $storagePath, $localPath, $expectedSize);
+                } elseif ($driver === 's3' && $useTemporaryUrl) {
+                    $this->downloadViaTemporaryUrl($disk, $storagePath, $localPath);
+                } elseif ($expectedSize !== null && $expectedSize <= $maxInMemoryBytes) {
+                    $this->downloadViaGet($disk, $storagePath, $localPath);
+                } else {
+                    $this->downloadViaStream($disk, $storagePath, $localPath, $expectedSize);
+                }
+
+                clearstatcache(true, $localPath);
+                $localSize = File::exists($localPath) ? (int) File::size($localPath) : 0;
+
+                if ($localSize === 0) {
+                    throw new RuntimeException('Downloaded file is empty.');
+                }
+
+                if ($expectedSize !== null && $localSize !== (int) $expectedSize) {
+                    throw new RuntimeException("Downloaded size mismatch. Expected {$expectedSize}, got {$localSize}.");
+                }
+
+                Log::info('Transcription start: download complete', [
+                    'storage_path' => $storagePath,
+                    'local_path' => $localPath,
+                    'size_bytes' => $localSize,
+                    'attempt' => $attempt,
+                ]);
+
+                return;
+            } catch (Throwable $exception) {
+                Log::warning('Transcription start: download failed', [
+                    'storage_path' => $storagePath,
+                    'local_path' => $localPath,
+                    'attempt' => $attempt,
+                    'message' => $exception->getMessage(),
+                ]);
+
+                if ($attempt >= $maxAttempts) {
+                    throw $exception;
+                }
+
+                sleep($backoffSeconds * $attempt);
+            }
+        }
+    }
+
+    protected function downloadViaGet(FilesystemAdapter $disk, string $storagePath, string $localPath): void
+    {
+        $contents = $disk->get($storagePath);
+
+        if ($contents === false || $contents === '') {
+            throw new RuntimeException("Unable to download file contents: {$storagePath}");
+        }
+
+        $bytes = file_put_contents($localPath, $contents);
+
+        if ($bytes === false || $bytes === 0) {
+            throw new RuntimeException("Unable to write local file: {$localPath}");
+        }
+    }
+
+    protected function downloadViaTemporaryUrl(FilesystemAdapter $disk, string $storagePath, string $localPath): void
+    {
+        $expiresAt = now()->addMinutes((int) config('transcribe.download.url_expiration_minutes', 60));
+        $timeoutSeconds = (int) config('transcribe.download.http_timeout_seconds', 3600);
+        $connectTimeoutSeconds = (int) config('transcribe.download.http_connect_timeout_seconds', 10);
+
+        $url = $disk->temporaryUrl($storagePath, $expiresAt);
+
+        $response = Http::connectTimeout($connectTimeoutSeconds)
+            ->timeout($timeoutSeconds)
+            ->withOptions(['sink' => $localPath])
+            ->get($url);
+
+        $response->throw();
+
+        if (! File::exists($localPath)) {
+            throw new RuntimeException("Temporary URL download failed for {$storagePath}.");
+        }
+    }
+
+    protected function downloadViaStream(FilesystemAdapter $disk, string $storagePath, string $localPath, ?int $expectedSize): void
     {
         $readStream = $disk->readStream($storagePath);
 
@@ -152,10 +288,50 @@ class StartTranscriptionJob implements ShouldQueue
         $writeStream = fopen($localPath, 'w');
 
         if (! $writeStream) {
+            if (is_resource($readStream)) {
+                fclose($readStream);
+            }
+
             throw new RuntimeException("Unable to write local file: {$localPath}");
         }
 
-        stream_copy_to_stream($readStream, $writeStream);
+        $chunkBytes = max(1024 * 1024, (int) config('transcribe.download.chunk_bytes', 8 * 1024 * 1024));
+        $progressBytes = max(1024 * 1024, (int) config('transcribe.download.progress_bytes', 50 * 1024 * 1024));
+        $written = 0;
+        $nextLogAt = $progressBytes;
+
+        while (! feof($readStream)) {
+            $buffer = fread($readStream, $chunkBytes);
+
+            if ($buffer === false) {
+                fclose($readStream);
+                fclose($writeStream);
+                throw new RuntimeException('Error while reading from storage stream.');
+            }
+
+            if ($buffer === '') {
+                continue;
+            }
+
+            $bytes = fwrite($writeStream, $buffer);
+
+            if ($bytes === false) {
+                fclose($readStream);
+                fclose($writeStream);
+                throw new RuntimeException('Error while writing to local file.');
+            }
+
+            $written += $bytes;
+
+            if ($written >= $nextLogAt) {
+                Log::info('Transcription start: download progress', [
+                    'storage_path' => $storagePath,
+                    'written_bytes' => $written,
+                    'expected_bytes' => $expectedSize,
+                ]);
+                $nextLogAt += $progressBytes;
+            }
+        }
 
         fclose($readStream);
         fclose($writeStream);

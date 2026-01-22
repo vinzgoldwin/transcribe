@@ -2,6 +2,7 @@
 
 return [
     'storage_disk' => env('TRANSCRIBE_STORAGE_DISK', 'transcriptions'),
+    'storage_prefix' => env('TRANSCRIBE_STORAGE_PREFIX', 'transcriptions'),
     'upload_expiration_minutes' => env('TRANSCRIBE_UPLOAD_EXPIRES', 20),
     'process_timeout_seconds' => env('TRANSCRIBE_PROCESS_TIMEOUT', 1200),
     'ffmpeg_path' => env('FFMPEG_BINARY', 'ffmpeg'),
@@ -23,6 +24,24 @@ return [
         'max_duration' => env('TRANSCRIBE_SUBTITLE_MAX_DURATION', 6),
         'max_chars_per_second' => env('TRANSCRIBE_SUBTITLE_MAX_CHARS_PER_SECOND', 17),
         'gap_seconds' => env('TRANSCRIBE_SUBTITLE_GAP_SECONDS', 0.05),
+    ],
+    'pipeline' => [
+        'stop_after' => env('TRANSCRIBE_STOP_AFTER', 'whisper'),
+    ],
+    'queue' => [
+        'start_timeout_seconds' => env('TRANSCRIBE_START_TIMEOUT', 3600),
+        'process_timeout_seconds' => env('TRANSCRIBE_CHUNK_TIMEOUT', 1800),
+    ],
+    'download' => [
+        'max_attempts' => env('TRANSCRIBE_DOWNLOAD_MAX_ATTEMPTS', 3),
+        'backoff_seconds' => env('TRANSCRIBE_DOWNLOAD_BACKOFF_SECONDS', 5),
+        'max_in_memory_mb' => env('TRANSCRIBE_DOWNLOAD_MAX_IN_MEMORY_MB', 200),
+        'chunk_bytes' => env('TRANSCRIBE_DOWNLOAD_CHUNK_BYTES', 8 * 1024 * 1024),
+        'progress_bytes' => env('TRANSCRIBE_DOWNLOAD_PROGRESS_BYTES', 50 * 1024 * 1024),
+        'use_temporary_url' => env('TRANSCRIBE_DOWNLOAD_USE_TEMP_URL', true),
+        'url_expiration_minutes' => env('TRANSCRIBE_DOWNLOAD_URL_MINUTES', 60),
+        'http_timeout_seconds' => env('TRANSCRIBE_DOWNLOAD_HTTP_TIMEOUT', 3600),
+        'http_connect_timeout_seconds' => env('TRANSCRIBE_DOWNLOAD_HTTP_CONNECT_TIMEOUT', 10),
     ],
     'providers' => [
         'stt' => [

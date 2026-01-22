@@ -25,6 +25,7 @@ class StoreTranscriptionRequest extends FormRequest
             'filename' => ['required', 'string', 'max:255'],
             'content_type' => ['required', 'string', 'in:video/mp4'],
             'size_bytes' => ['required', 'integer', 'min:1'],
+            'stop_after' => ['nullable', 'string', 'in:whisper,deepl'],
         ];
     }
 
@@ -34,6 +35,7 @@ class StoreTranscriptionRequest extends FormRequest
             'filename.required' => 'Please provide the original file name.',
             'content_type.in' => 'Only MP4 uploads are supported.',
             'size_bytes.min' => 'The file size must be greater than zero.',
+            'stop_after.in' => 'Stop after must be whisper or deepl.',
         ];
     }
 }

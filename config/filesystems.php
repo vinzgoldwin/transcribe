@@ -62,18 +62,20 @@ return [
 
         'transcriptions' => [
             'driver' => env('TRANSCRIBE_STORAGE_DRIVER', 'local'),
-            'root' => storage_path('app/private/transcriptions'),
-            'serve' => true,
+            'root' => env('TRANSCRIBE_STORAGE_DRIVER', 'local') === 'local'
+                ? storage_path('app/private/transcriptions')
+                : null,
+            'serve' => env('TRANSCRIBE_STORAGE_SERVE', false),
             'visibility' => 'private',
             'throw' => false,
             'report' => false,
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
-            'region' => env('AWS_DEFAULT_REGION'),
-            'bucket' => env('TRANSCRIBE_S3_BUCKET', env('AWS_BUCKET')),
-            'url' => env('TRANSCRIBE_S3_URL', env('AWS_URL')),
-            'endpoint' => env('TRANSCRIBE_S3_ENDPOINT', env('AWS_ENDPOINT')),
-            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'key' => env('DO_SPACES_KEY', env('AWS_ACCESS_KEY_ID')),
+            'secret' => env('DO_SPACES_SECRET', env('AWS_SECRET_ACCESS_KEY')),
+            'region' => env('DO_SPACES_REGION', env('AWS_DEFAULT_REGION')),
+            'bucket' => env('DO_SPACES_BUCKET', env('AWS_BUCKET')),
+            'url' => env('DO_SPACES_CDN_ENDPOINT', env('AWS_URL')),
+            'endpoint' => env('DO_SPACES_ENDPOINT', env('AWS_ENDPOINT')),
+            'use_path_style_endpoint' => env('DO_SPACES_PATH_STYLE', env('AWS_USE_PATH_STYLE_ENDPOINT', false)),
         ],
 
     ],

@@ -55,6 +55,14 @@ const statusLabel = computed(() => {
     }
 });
 
+const formatStatus = (status: string) => {
+    if (status === 'awaiting-translation') {
+        return 'awaiting translation';
+    }
+
+    return status;
+};
+
 const handlePick = () => {
     fileInput.value?.click();
 };
@@ -385,7 +393,7 @@ const startUpload = async () => {
                             <span
                                 class="rounded-full border border-black/10 px-3 py-1 text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:border-white/10 dark:text-slate-300"
                             >
-                                {{ transcription.status }}
+                                {{ formatStatus(transcription.status) }}
                             </span>
                         </div>
                         <div

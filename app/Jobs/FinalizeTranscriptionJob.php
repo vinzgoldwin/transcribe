@@ -84,18 +84,37 @@ class FinalizeTranscriptionJob implements ShouldQueue
         }
 
         $disk = Storage::disk($transcription->storage_disk);
-        $srtPath = "transcriptions/{$transcription->public_id}/output/transcription.srt";
-        $vttPath = "transcriptions/{$transcription->public_id}/output/transcription.vtt";
+        $outputPrefix = $this->storagePrefix()."/{$transcription->public_id}/output";
+        $srtPath = "{$outputPrefix}/transcription.srt";
+        $vttPath = "{$outputPrefix}/transcription.vtt";
 
         $disk->put($srtPath, $builder->buildSrt($exportSegments));
         $disk->put($vttPath, $builder->buildVtt($exportSegments));
 
+        $stopAfter = $this->resolveStopAfter($transcription);
+        $status = $stopAfter === 'whisper'
+            ? TranscriptionStatus::AwaitingTranslation
+            : TranscriptionStatus::Completed;
+
         $transcription->update([
-            'status' => TranscriptionStatus::Completed,
+            'status' => $status,
             'srt_path' => $srtPath,
             'vtt_path' => $vttPath,
             'completed_at' => now(),
         ]);
+    }
+
+    protected function storagePrefix(): string
+    {
+        return trim((string) config('transcribe.storage_prefix', 'transcriptions'), '/');
+    }
+
+    protected function resolveStopAfter(Transcription $transcription): string
+    {
+        $stopAfter = (string) ($transcription->meta['stop_after'] ?? config('transcribe.pipeline.stop_after', 'deepl'));
+        $normalized = strtolower(trim($stopAfter));
+
+        return $normalized === 'whisper' ? 'whisper' : 'deepl';
     }
 
     public function failed(Throwable $exception): void

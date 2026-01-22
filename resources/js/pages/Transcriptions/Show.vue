@@ -45,8 +45,18 @@ const progress = computed(() => {
     );
 });
 
+const formattedStatus = computed(() => {
+    if (props.transcription.status === 'awaiting-translation') {
+        return 'awaiting translation';
+    }
+
+    return props.transcription.status;
+});
+
 const isTerminal = computed(() =>
-    ['completed', 'failed'].includes(props.transcription.status),
+    ['completed', 'awaiting-translation', 'failed'].includes(
+        props.transcription.status,
+    ),
 );
 
 const { stop } = usePoll(2000);
@@ -97,7 +107,7 @@ watch(isTerminal, (value) => {
                         <p
                             class="font-[Manrope] text-sm text-slate-600 dark:text-slate-300"
                         >
-                            {{ props.transcription.status }} -
+                            {{ formattedStatus }} -
                             {{ props.transcription.chunks_completed }} /
                             {{ props.transcription.chunks_total }} chunks
                         </p>
@@ -217,7 +227,7 @@ watch(isTerminal, (value) => {
                         >
                             <span>Translation</span>
                             <span class="text-amber-500">
-                                {{ props.transcription.status }}
+                                {{ formattedStatus }}
                             </span>
                         </div>
                     </div>

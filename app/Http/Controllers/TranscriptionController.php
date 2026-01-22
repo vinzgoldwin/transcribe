@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
@@ -44,6 +45,7 @@ class TranscriptionController extends Controller
             'upload' => [
                 'expires_minutes' => (int) config('transcribe.upload_expiration_minutes'),
                 'storage_disk' => (string) config('transcribe.storage_disk'),
+                'default_stop_after' => (string) config('transcribe.pipeline.stop_after', 'deepl'),
             ],
         ]);
     }
@@ -51,21 +53,23 @@ class TranscriptionController extends Controller
     public function store(StoreTranscriptionRequest $request): JsonResponse
     {
         $storageDisk = (string) config('transcribe.storage_disk');
+        $publicId = (string) Str::uuid();
+        $stopAfter = $this->normalizeStopAfter(
+            $request->string('stop_after')->toString(),
+        );
 
         $transcription = Transcription::query()->create([
             'user_id' => $request->user()->id,
+            'public_id' => $publicId,
             'original_filename' => $request->string('filename')->toString(),
             'content_type' => $request->string('content_type')->toString(),
             'size_bytes' => $request->integer('size_bytes'),
             'storage_disk' => $storageDisk,
+            'storage_path' => $this->buildStoragePath($publicId, $request->string('filename')->toString()),
             'status' => TranscriptionStatus::Uploading,
-        ]);
-
-        $transcription->update([
-            'storage_path' => $this->sourceStoragePath(
-                $transcription,
-                $request->string('filename')->toString(),
-            ),
+            'meta' => [
+                'stop_after' => $stopAfter,
+            ],
         ]);
 
         [$uploadUrl, $headers] = $this->presignUpload($transcription);
@@ -188,7 +192,7 @@ class TranscriptionController extends Controller
     {
         $this->authorizeTranscription($request, $transcription);
 
-        if ($transcription->status !== TranscriptionStatus::Completed) {
+        if (! in_array($transcription->status, [TranscriptionStatus::Completed, TranscriptionStatus::AwaitingTranslation], true)) {
             abort(404);
         }
 
@@ -246,10 +250,27 @@ class TranscriptionController extends Controller
         return [$url, ['Content-Type' => $transcription->content_type]];
     }
 
-    protected function sourceStoragePath(Transcription $transcription, string $filename): string
+    protected function buildStoragePath(string $publicId, string $filename): string
     {
         $safeName = str_replace(['..', '/', '\\'], '-', $filename);
 
-        return "transcriptions/{$transcription->public_id}/{$safeName}";
+        return $this->storagePrefix()."/{$publicId}/{$safeName}";
+    }
+
+    protected function storagePrefix(): string
+    {
+        return trim((string) config('transcribe.storage_prefix', 'transcriptions'), '/');
+    }
+
+    protected function normalizeStopAfter(string $stopAfter): string
+    {
+        $normalized = strtolower(trim($stopAfter));
+
+        if ($normalized === '') {
+            $normalized = (string) config('transcribe.pipeline.stop_after', 'deepl');
+            $normalized = strtolower(trim($normalized));
+        }
+
+        return $normalized === 'whisper' ? 'whisper' : 'deepl';
     }
 }

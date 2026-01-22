@@ -34,9 +34,12 @@ class ProcessTranscriptionChunkJob implements ShouldQueue
      */
     public array $backoff = [60, 180, 300, 600];
 
-    public int $timeout = 900;
+    public int $timeout;
 
-    public function __construct(public int $chunkId) {}
+    public function __construct(public int $chunkId)
+    {
+        $this->timeout = (int) config('transcribe.queue.process_timeout_seconds', 1800);
+    }
 
     public function handle(SttProvider $sttProvider, Translator $translator, SubtitleFormatter $formatter): void
     {
@@ -73,27 +76,14 @@ class ProcessTranscriptionChunkJob implements ShouldQueue
         try {
             $this->streamToLocal($disk, $chunk->audio_path, $localPath);
 
-            $sttSegments = $sttProvider->transcribe($localPath, 'ja');
+            $sttSegments = $this->sanitizePayload($sttProvider->transcribe($localPath, 'ja'));
             $chunk->stt_payload = $sttSegments;
 
-            $jpTexts = collect($sttSegments)->pluck('text')->all();
-            $translations = $translator->translate($jpTexts, 'JA', 'EN');
-
-            $translatedSegments = collect($sttSegments)
-                ->values()
-                ->map(function (array $segment, int $index) use ($translations): array {
-                    return [
-                        'start' => (float) $segment['start'],
-                        'end' => (float) $segment['end'],
-                        'text' => (string) ($translations[$index] ?? ''),
-                        'text_jp' => (string) $segment['text'],
-                    ];
-                })
-                ->filter(fn (array $segment) => trim($segment['text']) !== '')
-                ->values()
-                ->all();
-
-            $chunk->translated_payload = $translatedSegments;
+            $stopAfter = $this->resolveStopAfter($transcription);
+            $translatedSegments = $stopAfter === 'whisper'
+                ? $this->buildWhisperOnlySegments($sttSegments)
+                : $this->buildTranslatedSegments($sttSegments, $translator);
+            $translatedSegments = $this->sanitizePayload($translatedSegments);
 
             $formattedSegments = $formatter->format(
                 collect($translatedSegments)
@@ -183,6 +173,86 @@ class ProcessTranscriptionChunkJob implements ShouldQueue
 
         fclose($readStream);
         fclose($writeStream);
+    }
+
+    /**
+     * @param  array<int, array{start: float, end: float, text: string}>  $sttSegments
+     * @return array<int, array{start: float, end: float, text: string, text_jp: string}>
+     */
+    protected function buildWhisperOnlySegments(array $sttSegments): array
+    {
+        return collect($sttSegments)
+            ->values()
+            ->map(fn (array $segment) => [
+                'start' => (float) $segment['start'],
+                'end' => (float) $segment['end'],
+                'text' => (string) $segment['text'],
+                'text_jp' => (string) $segment['text'],
+            ])
+            ->filter(fn (array $segment) => trim($segment['text']) !== '')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int, array{start: float, end: float, text: string}>  $sttSegments
+     * @return array<int, array{start: float, end: float, text: string, text_jp: string}>
+     */
+    protected function buildTranslatedSegments(array $sttSegments, Translator $translator): array
+    {
+        $jpTexts = collect($sttSegments)->pluck('text')->all();
+        $translations = $translator->translate($jpTexts, 'JA', 'EN');
+
+        return collect($sttSegments)
+            ->values()
+            ->map(function (array $segment, int $index) use ($translations): array {
+                return [
+                    'start' => (float) $segment['start'],
+                    'end' => (float) $segment['end'],
+                    'text' => (string) ($translations[$index] ?? ''),
+                    'text_jp' => (string) $segment['text'],
+                ];
+            })
+            ->filter(fn (array $segment) => trim($segment['text']) !== '')
+            ->values()
+            ->all();
+    }
+
+    protected function resolveStopAfter(?\App\Models\Transcription $transcription): string
+    {
+        $stopAfter = (string) ($transcription?->meta['stop_after'] ?? config('transcribe.pipeline.stop_after', 'deepl'));
+        $normalized = strtolower(trim($stopAfter));
+
+        return $normalized === 'whisper' ? 'whisper' : 'deepl';
+    }
+
+    protected function sanitizePayload(mixed $payload): mixed
+    {
+        if (is_array($payload)) {
+            foreach ($payload as $key => $value) {
+                $payload[$key] = $this->sanitizePayload($value);
+            }
+
+            return $payload;
+        }
+
+        if (! is_string($payload)) {
+            return $payload;
+        }
+
+        if ($payload === '' || preg_match('//u', $payload) === 1) {
+            return $payload;
+        }
+
+        if (function_exists('mb_convert_encoding')) {
+            $cleaned = (string) mb_convert_encoding($payload, 'UTF-8', 'UTF-8');
+
+            if (preg_match('//u', $cleaned) === 1) {
+                return $cleaned;
+            }
+        }
+
+        return '';
     }
 
     public function failed(Throwable $exception): void

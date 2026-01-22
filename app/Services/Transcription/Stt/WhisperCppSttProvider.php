@@ -124,7 +124,7 @@ class WhisperCppSttProvider implements SttProvider
             }
 
             $textLines = array_slice($lines, $timeLineIndex + 1);
-            $text = trim(strip_tags(implode(' ', $textLines)));
+            $text = self::sanitizeText(strip_tags(implode(' ', $textLines)));
 
             if ($text === '') {
                 continue;
@@ -156,7 +156,7 @@ class WhisperCppSttProvider implements SttProvider
             ->map(fn (array $segment) => [
                 'start' => (float) ($segment['start'] ?? 0.0),
                 'end' => (float) ($segment['end'] ?? 0.0),
-                'text' => trim((string) ($segment['text'] ?? '')),
+                'text' => self::sanitizeText((string) ($segment['text'] ?? '')),
             ])
             ->filter(fn (array $segment) => $segment['text'] !== '')
             ->values()
@@ -201,5 +201,28 @@ class WhisperCppSttProvider implements SttProvider
             "{$audioPath}.{$format}",
             "{$directory}/{$baseName}.{$format}",
         ];
+    }
+
+    protected static function sanitizeText(string $text): string
+    {
+        $text = trim($text);
+
+        if ($text === '') {
+            return '';
+        }
+
+        if (preg_match('//u', $text) === 1) {
+            return $text;
+        }
+
+        if (function_exists('mb_convert_encoding')) {
+            $cleaned = (string) mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+
+            if (preg_match('//u', $cleaned) === 1) {
+                return trim($cleaned);
+            }
+        }
+
+        return '';
     }
 }
