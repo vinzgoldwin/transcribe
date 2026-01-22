@@ -22,6 +22,7 @@ const props = defineProps<{
     upload: {
         expires_minutes: number;
         storage_disk: string;
+        default_stop_after: string;
     };
 }>();
 
@@ -34,10 +35,21 @@ const breadcrumbs = [
 
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFile = ref<File | null>(null);
+const stopAfter = ref<'whisper' | 'deepl'>(
+    props.upload.default_stop_after === 'whisper' ? 'whisper' : 'deepl',
+);
 const stage = ref<'idle' | 'presigning' | 'uploading' | 'finalizing' | 'done'>(
     'idle',
 );
 const errorMessage = ref<string | null>(null);
+
+// Computed stats
+const stats = computed(() => ({
+    total: props.transcriptions.length,
+    processing: props.transcriptions.filter(t => ['processing', 'uploading', 'uploaded'].includes(t.status)).length,
+    completed: props.transcriptions.filter(t => t.status === 'completed').length,
+    awaitingTranslation: props.transcriptions.filter(t => t.status === 'awaiting-translation').length,
+}));
 
 const isBusy = computed(() => stage.value !== 'idle' && stage.value !== 'done');
 const statusLabel = computed(() => {
@@ -56,11 +68,73 @@ const statusLabel = computed(() => {
 });
 
 const formatStatus = (status: string) => {
-    if (status === 'awaiting-translation') {
-        return 'awaiting translation';
+    switch (status) {
+        case 'awaiting-translation':
+            return 'Awaiting translation';
+        case 'completed':
+            return 'Completed';
+        case 'failed':
+            return 'Failed';
+        case 'processing':
+            return 'Processing';
+        case 'uploaded':
+            return 'Uploaded';
+        case 'uploading':
+            return 'Uploading';
+        default:
+            return status;
     }
+};
 
-    return status;
+const statusColor = (status: string) => {
+    switch (status) {
+        case 'completed':
+            return 'text-emerald-500';
+        case 'failed':
+            return 'text-red-500';
+        case 'processing':
+        case 'uploading':
+        case 'uploaded':
+            return 'text-amber-500';
+        case 'awaiting-translation':
+            return 'text-sky-500';
+        default:
+            return 'text-slate-400';
+    }
+};
+
+const statusBgColor = (status: string) => {
+    switch (status) {
+        case 'completed':
+            return 'bg-emerald-500';
+        case 'failed':
+            return 'bg-red-500';
+        case 'processing':
+        case 'uploading':
+        case 'uploaded':
+            return 'bg-amber-500';
+        case 'awaiting-translation':
+            return 'bg-sky-500';
+        default:
+            return 'bg-slate-400';
+    }
+};
+
+const statusGlow = (status: string) => {
+    switch (status) {
+        case 'completed':
+            return 'shadow-[0_0_12px_rgba(52,211,153,0.6)]';
+        case 'failed':
+            return 'shadow-[0_0_12px_rgba(239,68,68,0.6)]';
+        case 'processing':
+        case 'uploading':
+        case 'uploaded':
+            return 'shadow-[0_0_12px_rgba(251,191,36,0.6)]';
+        case 'awaiting-translation':
+            return 'shadow-[0_0_12px_rgba(56,189,248,0.6)]';
+        default:
+            return '';
+    }
 };
 
 const handlePick = () => {
@@ -121,6 +195,7 @@ const startUpload = async () => {
                 filename: selectedFile.value.name,
                 content_type: selectedFile.value.type || 'video/mp4',
                 size_bytes: selectedFile.value.size,
+                stop_after: stopAfter.value,
             }),
         });
 
@@ -187,7 +262,8 @@ const startUpload = async () => {
     </Head>
 
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="flex flex-col gap-8">
+        <div class="flex flex-col gap-8 p-4 lg:p-8">
+            <!-- Hero Section with Upload -->
             <section
                 class="animate-transcribe-rise relative overflow-hidden rounded-[32px] border border-black/10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.85),_rgba(234,226,214,0.65),_rgba(206,221,226,0.35))] p-6 shadow-[0_30px_80px_-60px_rgba(18,24,38,0.5)] dark:border-white/10 dark:bg-[radial-gradient(circle_at_top,_rgba(20,20,22,0.95),_rgba(12,14,18,0.88),_rgba(5,6,8,0.95))] dark:shadow-[0_30px_80px_-50px_rgba(15,17,21,0.7)] lg:p-10"
             >
@@ -265,6 +341,7 @@ const startUpload = async () => {
                         </div>
                     </div>
 
+                    <!-- Upload Card -->
                     <div
                         class="relative flex flex-col gap-6 rounded-[28px] border border-black/10 bg-white/80 p-6 shadow-[0_25px_80px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-white/10 dark:bg-white/5"
                     >
@@ -328,6 +405,48 @@ const startUpload = async () => {
                             </span>
                         </button>
 
+                        <div class="flex flex-col gap-2">
+                            <span
+                                class="text-[11px] uppercase tracking-[0.3em] text-slate-400"
+                            >
+                                Stop after
+                            </span>
+                            <div
+                                class="inline-flex w-full rounded-full border border-black/10 bg-white/70 p-1 text-xs uppercase tracking-[0.2em] text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
+                            >
+                                <button
+                                    type="button"
+                                    class="flex-1 rounded-full px-3 py-2 transition"
+                                    :class="
+                                        stopAfter === 'deepl'
+                                            ? 'bg-slate-900 text-white shadow-[0_10px_20px_-14px_rgba(15,23,42,0.65)] dark:bg-white dark:text-slate-900'
+                                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white'
+                                    "
+                                    @click="stopAfter = 'deepl'"
+                                >
+                                    DeepL (EN)
+                                </button>
+                                <button
+                                    type="button"
+                                    class="flex-1 rounded-full px-3 py-2 transition"
+                                    :class="
+                                        stopAfter === 'whisper'
+                                            ? 'bg-slate-900 text-white shadow-[0_10px_20px_-14px_rgba(15,23,42,0.65)] dark:bg-white dark:text-slate-900'
+                                            : 'text-slate-500 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white'
+                                    "
+                                    @click="stopAfter = 'whisper'"
+                                >
+                                    Whisper (JP)
+                                </button>
+                            </div>
+                            <p
+                                class="text-xs text-slate-400 dark:text-slate-500"
+                            >
+                                Whisper stops with a JP SRT for manual
+                                translation.
+                            </p>
+                        </div>
+
                         <div class="flex flex-col gap-3">
                             <button
                                 type="button"
@@ -358,7 +477,104 @@ const startUpload = async () => {
                 </div>
             </section>
 
-            <section class="animate-transcribe-fade flex flex-col gap-4">
+            <!-- Stats Overview -->
+            <section class="animate-transcribe-fade grid gap-4 sm:grid-cols-2 lg:grid-cols-4" style="animation-delay: 0.1s">
+                <!-- Total -->
+                <div
+                    class="group relative overflow-hidden rounded-2xl border border-black/10 bg-white/60 p-5 shadow-[0_15px_40px_-20px_rgba(15,23,42,0.2)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_-18px_rgba(15,23,42,0.3)] dark:border-white/10 dark:bg-white/5"
+                >
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-[10px] uppercase tracking-[0.3em] text-slate-400">
+                                Total
+                            </p>
+                            <p class="mt-1 font-[Fraunces] text-3xl text-slate-900 dark:text-white">
+                                {{ stats.total }}
+                            </p>
+                        </div>
+                        <div
+                            class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900/5 dark:bg-white/5"
+                        >
+                            <svg class="h-5 w-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Processing -->
+                <div
+                    class="group relative overflow-hidden rounded-2xl border border-black/10 bg-white/60 p-5 shadow-[0_15px_40px_-20px_rgba(15,23,42,0.2)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_-18px_rgba(15,23,42,0.3)] dark:border-white/10 dark:bg-white/5"
+                >
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-[10px] uppercase tracking-[0.3em] text-slate-400">
+                                Processing
+                            </p>
+                            <p class="mt-1 font-[Fraunces] text-3xl text-amber-500">
+                                {{ stats.processing }}
+                            </p>
+                        </div>
+                        <div
+                            class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10"
+                        >
+                            <div class="relative">
+                                <div v-if="stats.processing > 0" class="h-3 w-3 animate-ping rounded-full bg-amber-400 opacity-75" />
+                                <div class="absolute inset-0 h-3 w-3 rounded-full bg-amber-500" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Completed -->
+                <div
+                    class="group relative overflow-hidden rounded-2xl border border-black/10 bg-white/60 p-5 shadow-[0_15px_40px_-20px_rgba(15,23,42,0.2)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_-18px_rgba(15,23,42,0.3)] dark:border-white/10 dark:bg-white/5"
+                >
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-[10px] uppercase tracking-[0.3em] text-slate-400">
+                                Completed
+                            </p>
+                            <p class="mt-1 font-[Fraunces] text-3xl text-emerald-500">
+                                {{ stats.completed }}
+                            </p>
+                        </div>
+                        <div
+                            class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10"
+                        >
+                            <svg class="h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Awaiting Translation -->
+                <div
+                    class="group relative overflow-hidden rounded-2xl border border-black/10 bg-white/60 p-5 shadow-[0_15px_40px_-20px_rgba(15,23,42,0.2)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_-18px_rgba(15,23,42,0.3)] dark:border-white/10 dark:bg-white/5"
+                >
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-[10px] uppercase tracking-[0.3em] text-slate-400">
+                                Awaiting
+                            </p>
+                            <p class="mt-1 font-[Fraunces] text-3xl text-sky-500">
+                                {{ stats.awaitingTranslation }}
+                            </p>
+                        </div>
+                        <div
+                            class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10"
+                        >
+                            <svg class="h-5 w-5 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recent Runs with Enhanced List -->
+            <section class="animate-transcribe-fade flex flex-col gap-4" style="animation-delay: 0.2s">
                 <div class="flex items-center justify-between">
                     <h3
                         class="font-[Fraunces] text-xl text-slate-900 dark:text-slate-100"
@@ -374,44 +590,71 @@ const startUpload = async () => {
 
                 <div
                     v-if="props.transcriptions.length === 0"
-                    class="rounded-2xl border border-dashed border-slate-200 bg-white/50 p-6 text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
+                    class="rounded-2xl border border-dashed border-slate-200 bg-white/50 p-8 text-center font-[Manrope] dark:border-white/10 dark:bg-white/5"
                 >
-                    No transcriptions yet. Upload an MP4 to start.
+                    <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-white/10">
+                        <svg class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                        </svg>
+                    </div>
+                    <p class="font-medium text-slate-600 dark:text-slate-300">No transcriptions yet</p>
+                    <p class="mt-1 text-sm text-slate-400">Upload an MP4 above to start transcribing</p>
                 </div>
 
                 <div v-else class="grid gap-3">
                     <Link
-                        v-for="transcription in props.transcriptions"
+                        v-for="(transcription, index) in props.transcriptions"
                         :key="transcription.id"
                         :href="transcription.show_url"
-                        class="group flex flex-col gap-3 rounded-2xl border border-black/10 bg-white/70 p-5 font-[Manrope] text-sm text-slate-600 shadow-[0_18px_35px_-28px_rgba(15,23,42,0.35)] transition hover:-translate-y-[2px] hover:border-black/30 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-white/30 dark:hover:text-white"
+                        class="group relative flex items-center gap-4 rounded-2xl border border-black/10 bg-white/70 p-5 font-[Manrope] text-sm text-slate-600 shadow-[0_18px_35px_-28px_rgba(15,23,42,0.35)] transition-all duration-300 hover:-translate-y-[2px] hover:border-black/20 hover:shadow-[0_25px_50px_-20px_rgba(15,23,42,0.4)] dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-white/20"
+                        :style="{ animationDelay: `${0.02 * index}s` }"
                     >
-                        <div class="flex items-center justify-between">
-                            <span class="text-base font-semibold">
-                                {{ transcription.filename }}
-                            </span>
-                            <span
-                                class="rounded-full border border-black/10 px-3 py-1 text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:border-white/10 dark:text-slate-300"
-                            >
-                                {{ formatStatus(transcription.status) }}
-                            </span>
-                        </div>
+                        <!-- Status indicator dot -->
                         <div
-                            class="flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.2em] text-slate-400"
-                        >
-                            <span>
-                                {{
-                                    transcription.duration_seconds
-                                        ? `${transcription.duration_seconds.toFixed(1)}s`
-                                        : 'Pending duration'
-                                }}
-                            </span>
-                            <span>
-                                {{ transcription.chunks_completed }} /
-                                {{ transcription.chunks_total }} chunks
-                            </span>
-                            <span>{{ transcription.created_at ?? '' }}</span>
+                            class="h-3 w-3 shrink-0 rounded-full"
+                            :class="[statusBgColor(transcription.status), statusGlow(transcription.status)]"
+                        />
+
+                        <!-- Content -->
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between gap-4">
+                                <span class="truncate text-base font-semibold text-slate-900 dark:text-white">
+                                    {{ transcription.filename }}
+                                </span>
+                                <span
+                                    class="shrink-0 rounded-full border border-black/10 px-3 py-1 text-[10px] uppercase tracking-[0.2em] dark:border-white/10"
+                                    :class="statusColor(transcription.status)"
+                                >
+                                    {{ formatStatus(transcription.status) }}
+                                </span>
+                            </div>
+                            <div
+                                class="mt-1 flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.15em] text-slate-400"
+                            >
+                                <span>
+                                    {{
+                                        transcription.duration_seconds
+                                            ? `${transcription.duration_seconds.toFixed(1)}s`
+                                            : 'Pending'
+                                    }}
+                                </span>
+                                <span>
+                                    {{ transcription.chunks_completed }} /
+                                    {{ transcription.chunks_total }} chunks
+                                </span>
+                                <span v-if="transcription.created_at">{{ transcription.created_at }}</span>
+                            </div>
                         </div>
+
+                        <!-- Arrow indicator -->
+                        <svg
+                            class="h-5 w-5 shrink-0 text-slate-300 transition-transform group-hover:translate-x-1 dark:text-slate-600"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
                     </Link>
                 </div>
             </section>
