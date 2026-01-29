@@ -18,6 +18,9 @@ class WhisperCppSttProvider implements SttProvider
         public int $timeoutSeconds,
         public ?int $threads,
         public string $outputFormat,
+        public ?int $bestOf,
+        public ?int $beamSize,
+        public bool $suppressNonSpeechTokens,
     ) {}
 
     public function transcribe(string $audioPath, string $language): array
@@ -56,6 +59,20 @@ class WhisperCppSttProvider implements SttProvider
         if ($this->threads) {
             $command[] = '-t';
             $command[] = (string) $this->threads;
+        }
+
+        if ($this->bestOf !== null) {
+            $command[] = '-bo';
+            $command[] = (string) $this->bestOf;
+        }
+
+        if ($this->beamSize !== null) {
+            $command[] = '-bs';
+            $command[] = (string) $this->beamSize;
+        }
+
+        if ($this->suppressNonSpeechTokens) {
+            $command[] = '-sns';
         }
 
         $command[] = $format === 'json' ? '--output-json' : '--output-srt';

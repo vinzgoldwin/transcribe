@@ -4,6 +4,7 @@ use App\Enums\TranscriptionChunkStatus;
 use App\Enums\TranscriptionStatus;
 use App\Jobs\FinalizeTranscriptionJob;
 use App\Jobs\ProcessTranscriptionChunkJob;
+use App\Jobs\TranslateTranscriptionJob;
 use App\Models\Transcription;
 use App\Models\TranscriptionChunk;
 use App\Models\TranscriptionSegment;
@@ -39,6 +40,28 @@ it('stores storage path on creation', function () {
     expect($transcription)->not->toBeNull()
         ->and($transcription->storage_path)->toBe("transcriptions/{$publicId}/clip.mp4")
         ->and($transcription->meta['stop_after'])->toBe('whisper');
+});
+
+it('stores azure stop after on creation', function () {
+    $user = \App\Models\User::factory()->create();
+    config(['transcribe.storage_prefix' => 'transcriptions']);
+
+    $response = $this->actingAs($user)
+        ->withoutMiddleware(ValidateSessionWithWorkOS::class)
+        ->postJson(route('transcriptions.store'), [
+            'filename' => 'clip.mp4',
+            'content_type' => 'video/mp4',
+            'size_bytes' => 1234,
+            'stop_after' => 'azure',
+        ]);
+
+    $response->assertSuccessful();
+
+    $publicId = $response->json('transcription.id');
+    $transcription = Transcription::query()->where('public_id', $publicId)->first();
+
+    expect($transcription)->not->toBeNull()
+        ->and($transcription->meta['stop_after'])->toBe('azure');
 });
 
 it('builds storage paths using a custom prefix', function () {
@@ -172,6 +195,7 @@ it('marks transcription awaiting translation when stop after whisper', function 
 
     $transcription = Transcription::factory()->create([
         'storage_disk' => 'local',
+        'original_filename' => 'sample-video.mp4',
         'status' => TranscriptionStatus::Processing,
         'chunks_total' => 1,
         'chunks_completed' => 1,
@@ -191,11 +215,82 @@ it('marks transcription awaiting translation when stop after whisper', function 
     $job->handle(app(OverlapDeduplicator::class), app(SrtVttBuilder::class));
 
     $transcription->refresh();
+    $outputPrefix = "transcriptions/{$transcription->public_id}/output";
 
     expect($transcription->status)->toBe(TranscriptionStatus::AwaitingTranslation)
-        ->and($transcription->srt_path)->not->toBeNull()
-        ->and($transcription->vtt_path)->not->toBeNull();
+        ->and($transcription->srt_path)->toBe("{$outputPrefix}/sample-video_en.srt")
+        ->and($transcription->vtt_path)->toBe("{$outputPrefix}/sample-video_en.vtt");
 
     Storage::disk('local')->assertExists($transcription->srt_path);
     Storage::disk('local')->assertExists($transcription->vtt_path);
+});
+
+it('translates segments after awaiting translation', function () {
+    Storage::fake('local');
+    config(['transcribe.storage_prefix' => 'transcriptions']);
+
+    $transcription = Transcription::factory()->create([
+        'storage_disk' => 'local',
+        'status' => TranscriptionStatus::AwaitingTranslation,
+        'original_filename' => 'sample-video.mp4',
+    ]);
+
+    TranscriptionSegment::factory()
+        ->for($transcription)
+        ->count(2)
+        ->sequence(
+            [
+                'sequence' => 1,
+                'start_seconds' => 0.0,
+                'end_seconds' => 1.2,
+                'text_jp' => 'こんにちは',
+                'text_en' => 'こんにちは',
+                'formatted_text' => 'こんにちは',
+            ],
+            [
+                'sequence' => 2,
+                'start_seconds' => 1.2,
+                'end_seconds' => 2.4,
+                'text_jp' => '世界',
+                'text_en' => '世界',
+                'formatted_text' => '世界',
+            ],
+        )
+        ->create();
+
+    $capturedTexts = [];
+    $translator = new class($capturedTexts) implements Translator
+    {
+        public function __construct(private array &$capturedTexts) {}
+
+        public function translate(array $texts, string $sourceLanguage, string $targetLanguage): array
+        {
+            $this->capturedTexts = $texts;
+
+            return ['Hello', 'World'];
+        }
+    };
+
+    $job = new TranslateTranscriptionJob($transcription->id);
+    $job->handle($translator, app(SubtitleFormatter::class), app(SrtVttBuilder::class));
+
+    $transcription->refresh();
+    $outputPrefix = "transcriptions/{$transcription->public_id}/output";
+    $segments = TranscriptionSegment::query()
+        ->where('transcription_id', $transcription->id)
+        ->orderBy('sequence')
+        ->get();
+
+    expect($capturedTexts)->toBe(['こんにちは', '世界'])
+        ->and($transcription->status)->toBe(TranscriptionStatus::Completed)
+        ->and($transcription->srt_path)->toBe("{$outputPrefix}/sample-video_en.srt")
+        ->and($transcription->vtt_path)->toBe("{$outputPrefix}/sample-video_en.vtt")
+        ->and($segments[0]->text_en)->toBe('Hello')
+        ->and($segments[1]->text_en)->toBe('World');
+
+    Storage::disk('local')->assertExists($transcription->srt_path);
+    $srtContents = Storage::disk('local')->get($transcription->srt_path);
+
+    expect($srtContents)->toContain('Hello')
+        ->and($srtContents)->toContain('World');
 });

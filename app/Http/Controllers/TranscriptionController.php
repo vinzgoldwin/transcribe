@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Enums\TranscriptionStatus;
 use App\Http\Requests\CompleteTranscriptionUploadRequest;
 use App\Http\Requests\StoreTranscriptionRequest;
+use App\Http\Requests\TranslateTranscriptionRequest;
 use App\Jobs\StartTranscriptionJob;
+use App\Jobs\TranslateTranscriptionJob;
 use App\Models\Transcription;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -45,7 +47,9 @@ class TranscriptionController extends Controller
             'upload' => [
                 'expires_minutes' => (int) config('transcribe.upload_expiration_minutes'),
                 'storage_disk' => (string) config('transcribe.storage_disk'),
-                'default_stop_after' => (string) config('transcribe.pipeline.stop_after', 'deepl'),
+                'default_stop_after' => $this->normalizeStopAfter(
+                    (string) config('transcribe.pipeline.stop_after', 'whisper'),
+                ),
             ],
         ]);
     }
@@ -143,6 +147,18 @@ class TranscriptionController extends Controller
             'status' => $transcription->status->value,
             'show_url' => route('transcriptions.show', $transcription),
         ]);
+    }
+
+    public function translate(TranslateTranscriptionRequest $request, Transcription $transcription): RedirectResponse
+    {
+        $transcription->update([
+            'status' => TranscriptionStatus::Processing,
+            'error_message' => null,
+        ]);
+
+        TranslateTranscriptionJob::dispatch($transcription->id);
+
+        return redirect()->route('transcriptions.show', $transcription);
     }
 
     public function show(Request $request, Transcription $transcription): Response
@@ -267,10 +283,14 @@ class TranscriptionController extends Controller
         $normalized = strtolower(trim($stopAfter));
 
         if ($normalized === '') {
-            $normalized = (string) config('transcribe.pipeline.stop_after', 'deepl');
+            $normalized = (string) config('transcribe.pipeline.stop_after', 'whisper');
             $normalized = strtolower(trim($normalized));
         }
 
-        return $normalized === 'whisper' ? 'whisper' : 'deepl';
+        if ($normalized === 'whisper') {
+            return 'whisper';
+        }
+
+        return in_array($normalized, ['azure', 'deepl'], true) ? 'azure' : 'whisper';
     }
 }

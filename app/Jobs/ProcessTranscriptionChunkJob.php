@@ -220,10 +220,14 @@ class ProcessTranscriptionChunkJob implements ShouldQueue
 
     protected function resolveStopAfter(?\App\Models\Transcription $transcription): string
     {
-        $stopAfter = (string) ($transcription?->meta['stop_after'] ?? config('transcribe.pipeline.stop_after', 'deepl'));
+        $stopAfter = (string) ($transcription?->meta['stop_after'] ?? config('transcribe.pipeline.stop_after', 'whisper'));
         $normalized = strtolower(trim($stopAfter));
 
-        return $normalized === 'whisper' ? 'whisper' : 'deepl';
+        if ($normalized === 'whisper') {
+            return 'whisper';
+        }
+
+        return in_array($normalized, ['azure', 'deepl'], true) ? 'azure' : 'whisper';
     }
 
     protected function sanitizePayload(mixed $payload): mixed

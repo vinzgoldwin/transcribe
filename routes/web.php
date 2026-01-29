@@ -18,6 +18,8 @@ Route::middleware([
         ->name('transcriptions.upload');
     Route::post('transcriptions/{transcription}/complete', [TranscriptionController::class, 'complete'])
         ->name('transcriptions.complete');
+    Route::post('transcriptions/{transcription}/translate', [TranscriptionController::class, 'translate'])
+        ->name('transcriptions.translate');
     Route::get('transcriptions/{transcription}', [TranscriptionController::class, 'show'])
         ->name('transcriptions.show');
     Route::get('transcriptions/{transcription}/status', [TranscriptionController::class, 'status'])

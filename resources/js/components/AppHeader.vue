@@ -54,8 +54,8 @@ const { urlIsActive } = useActiveUrl();
 
 function activeItemStyles(url: NonNullable<InertiaLinkProps['href']>) {
     return urlIsActive(url)
-        ? 'text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100'
-        : '';
+        ? 'bg-[var(--surface-2)] text-[var(--text)] shadow-[0_8px_16px_-12px_rgba(15,23,42,0.25)]'
+        : 'text-muted-foreground hover:text-foreground';
 }
 
 const mainNavItems: NavItem[] = [
@@ -78,12 +78,18 @@ const rightNavItems: NavItem[] = [
         icon: BookOpen,
     },
 ];
+
+const openCommandPalette = () => {
+    window.dispatchEvent(new CustomEvent('command-palette:open'));
+};
 </script>
 
 <template>
     <div>
-        <div class="border-b border-sidebar-border/80">
-            <div class="mx-auto flex h-16 items-center px-4 md:max-w-7xl">
+        <div
+            class="border-b border-[color:var(--border)]/70 bg-[color:var(--surface)]/80 backdrop-blur-lg"
+        >
+            <div class="mx-auto flex h-16 items-center px-6 md:max-w-7xl">
                 <!-- Mobile Menu -->
                 <div class="lg:hidden">
                     <Sheet>
@@ -101,9 +107,7 @@ const rightNavItems: NavItem[] = [
                                 >Navigation Menu</SheetTitle
                             >
                             <SheetHeader class="flex justify-start text-left">
-                                <AppLogoIcon
-                                    class="size-6 fill-current text-black dark:text-white"
-                                />
+                                <AppLogoIcon class="size-6 fill-current text-current" />
                             </SheetHeader>
                             <div
                                 class="flex h-full flex-1 flex-col justify-between space-y-4 py-6"
@@ -113,7 +117,7 @@ const rightNavItems: NavItem[] = [
                                         v-for="item in mainNavItems"
                                         :key="item.title"
                                         :href="item.href"
-                                        class="flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent"
+                                        class="flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
                                         :class="activeItemStyles(item.href)"
                                     >
                                         <component
@@ -131,8 +135,8 @@ const rightNavItems: NavItem[] = [
                                         :href="toUrl(item.href)"
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        class="flex items-center space-x-2 text-sm font-medium"
-                                    >
+                                    class="flex items-center space-x-2 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+                                >
                                         <component
                                             v-if="item.icon"
                                             :is="item.icon"
@@ -178,7 +182,7 @@ const rightNavItems: NavItem[] = [
                                 </Link>
                                 <div
                                     v-if="urlIsActive(item.href)"
-                                    class="absolute bottom-0 left-0 h-0.5 w-full translate-y-px bg-black dark:bg-white"
+                                    class="absolute bottom-0 left-0 h-0.5 w-full translate-y-px bg-[var(--accent)]"
                                 ></div>
                             </NavigationMenuItem>
                         </NavigationMenuList>
@@ -190,12 +194,19 @@ const rightNavItems: NavItem[] = [
                         <Button
                             variant="ghost"
                             size="icon"
-                            class="group h-9 w-9 cursor-pointer"
+                            class="group h-9 w-9 cursor-pointer text-muted-foreground"
+                            aria-label="Open command palette"
+                            @click="openCommandPalette"
                         >
                             <Search
-                                class="size-5 opacity-80 group-hover:opacity-100"
+                                class="size-5 opacity-80 transition group-hover:opacity-100"
                             />
                         </Button>
+                        <span
+                            class="hidden rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground lg:inline-flex"
+                        >
+                            Cmd K
+                        </span>
 
                         <div class="hidden space-x-1 lg:flex">
                             <template
@@ -205,12 +216,12 @@ const rightNavItems: NavItem[] = [
                                 <TooltipProvider :delay-duration="0">
                                     <Tooltip>
                                         <TooltipTrigger>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                as-child
-                                                class="group h-9 w-9 cursor-pointer"
-                                            >
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    as-child
+                                    class="group h-9 w-9 cursor-pointer text-muted-foreground"
+                                >
                                                 <a
                                                     :href="toUrl(item.href)"
                                                     target="_blank"
@@ -221,10 +232,10 @@ const rightNavItems: NavItem[] = [
                                                     }}</span>
                                                     <component
                                                         :is="item.icon"
-                                                        class="size-5 opacity-80 group-hover:opacity-100"
-                                                    />
-                                                </a>
-                                            </Button>
+                                                class="size-5 opacity-80 transition group-hover:opacity-100"
+                                            />
+                                        </a>
+                                    </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
                                             <p>{{ item.title }}</p>
@@ -240,7 +251,7 @@ const rightNavItems: NavItem[] = [
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                class="relative size-10 w-auto rounded-full p-1 focus-within:ring-2 focus-within:ring-primary"
+                                class="relative size-10 w-auto rounded-full p-1 ring-1 ring-[color:var(--border)]/70 focus-within:ring-2 focus-within:ring-primary"
                             >
                                 <Avatar
                                     class="size-8 overflow-hidden rounded-full"
@@ -251,7 +262,7 @@ const rightNavItems: NavItem[] = [
                                         :alt="auth.user.name"
                                     />
                                     <AvatarFallback
-                                        class="rounded-lg bg-neutral-200 font-semibold text-black dark:bg-neutral-700 dark:text-white"
+                                        class="rounded-lg bg-[var(--surface-2)] font-semibold text-[var(--text)]"
                                     >
                                         {{ getInitials(auth.user?.name) }}
                                     </AvatarFallback>
@@ -268,10 +279,10 @@ const rightNavItems: NavItem[] = [
 
         <div
             v-if="props.breadcrumbs.length > 1"
-            class="flex w-full border-b border-sidebar-border/70"
+            class="flex w-full border-b border-[color:var(--border)]/70 bg-[color:var(--surface)]/60 backdrop-blur"
         >
             <div
-                class="mx-auto flex h-12 w-full items-center justify-start px-4 text-neutral-500 md:max-w-7xl"
+                class="mx-auto flex h-12 w-full items-center justify-start px-6 text-muted-foreground md:max-w-7xl"
             >
                 <Breadcrumbs :breadcrumbs="breadcrumbs" />
             </div>

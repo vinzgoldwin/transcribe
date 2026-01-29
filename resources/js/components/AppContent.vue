@@ -18,7 +18,7 @@ const className = computed(() => props.class);
     </SidebarInset>
     <main
         v-else
-        class="mx-auto flex h-full w-full max-w-7xl flex-1 flex-col gap-4 rounded-xl"
+        class="mx-auto flex h-full w-full max-w-6xl flex-1 flex-col gap-6 rounded-3xl px-6 pb-10 pt-6"
         :class="className"
     >
         <slot />

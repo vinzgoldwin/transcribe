@@ -12,7 +12,7 @@ const props = defineProps<{
   <Separator
     data-slot="sidebar-separator"
     data-sidebar="separator"
-    :class="cn('bg-sidebar-border mx-2 w-auto', props.class)"
+    :class="cn('bg-[color:var(--border)]/70 mx-2 w-auto', props.class)"
   >
     <slot />
   </Separator>

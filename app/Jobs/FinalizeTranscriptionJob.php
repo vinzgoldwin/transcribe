@@ -85,8 +85,9 @@ class FinalizeTranscriptionJob implements ShouldQueue
 
         $disk = Storage::disk($transcription->storage_disk);
         $outputPrefix = $this->storagePrefix()."/{$transcription->public_id}/output";
-        $srtPath = "{$outputPrefix}/transcription.srt";
-        $vttPath = "{$outputPrefix}/transcription.vtt";
+        $baseName = $this->outputBaseName($transcription);
+        $srtPath = "{$outputPrefix}/{$baseName}_en.srt";
+        $vttPath = "{$outputPrefix}/{$baseName}_en.vtt";
 
         $disk->put($srtPath, $builder->buildSrt($exportSegments));
         $disk->put($vttPath, $builder->buildVtt($exportSegments));
@@ -109,12 +110,28 @@ class FinalizeTranscriptionJob implements ShouldQueue
         return trim((string) config('transcribe.storage_prefix', 'transcriptions'), '/');
     }
 
+    protected function outputBaseName(Transcription $transcription): string
+    {
+        $filename = (string) ($transcription->original_filename ?? '');
+        $baseName = trim((string) pathinfo($filename, PATHINFO_FILENAME));
+
+        if ($baseName === '') {
+            $baseName = 'transcription';
+        }
+
+        return str_replace(['..', '/', '\\'], '-', $baseName);
+    }
+
     protected function resolveStopAfter(Transcription $transcription): string
     {
-        $stopAfter = (string) ($transcription->meta['stop_after'] ?? config('transcribe.pipeline.stop_after', 'deepl'));
+        $stopAfter = (string) ($transcription->meta['stop_after'] ?? config('transcribe.pipeline.stop_after', 'whisper'));
         $normalized = strtolower(trim($stopAfter));
 
-        return $normalized === 'whisper' ? 'whisper' : 'deepl';
+        if ($normalized === 'whisper') {
+            return 'whisper';
+        }
+
+        return in_array($normalized, ['azure', 'deepl'], true) ? 'azure' : 'whisper';
     }
 
     public function failed(Throwable $exception): void

@@ -82,6 +82,17 @@ class SubtitleFormatter
         return $formatted;
     }
 
+    public function wrapText(string $text): string
+    {
+        $text = trim($text);
+
+        if ($text === '') {
+            return '';
+        }
+
+        return $this->wrapLines($text);
+    }
+
     protected function requiredDuration(string $text): float
     {
         $length = $this->textLength($text);

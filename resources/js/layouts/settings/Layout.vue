@@ -25,14 +25,14 @@ const { urlIsActive } = useActiveUrl();
 </script>
 
 <template>
-    <div class="px-4 py-6">
+    <div class="mx-auto w-full max-w-5xl px-6 py-8">
         <Heading
             title="Settings"
             description="Manage your profile and account settings"
         />
 
-        <div class="flex flex-col lg:flex-row lg:space-x-12">
-            <aside class="w-full max-w-xl lg:w-48">
+        <div class="flex flex-col gap-8 lg:flex-row lg:gap-12">
+            <aside class="w-full max-w-xl lg:w-56">
                 <nav
                     class="flex flex-col space-y-1 space-x-0"
                     aria-label="Settings"
@@ -42,7 +42,7 @@ const { urlIsActive } = useActiveUrl();
                         :key="toUrl(item.href)"
                         variant="ghost"
                         :class="[
-                            'w-full justify-start',
+                            'w-full justify-start text-muted-foreground hover:text-foreground',
                             { 'bg-muted': urlIsActive(item.href) },
                         ]"
                         as-child

@@ -9,6 +9,7 @@ use App\Services\Transcription\Stt\SttProvider;
 use App\Services\Transcription\Stt\WhisperCppSttProvider;
 use App\Services\Transcription\Stt\WhisperSttProvider;
 use App\Services\Transcription\SubtitleFormatter;
+use App\Services\Transcription\Translation\AzureTranslator;
 use App\Services\Transcription\Translation\DeepLTranslator;
 use App\Services\Transcription\Translation\Translator;
 use Carbon\CarbonImmutable;
@@ -56,21 +57,37 @@ class AppServiceProvider extends ServiceProvider
                     config('transcribe.providers.stt.whisper.base_url'),
                     config('transcribe.providers.stt.whisper.model', 'whisper-1'),
                 ),
-                'whisper_cpp' => new WhisperCppSttProvider(
-                    config('transcribe.providers.stt.whisper_cpp.binary'),
-                    config('transcribe.providers.stt.whisper_cpp.model'),
-                    (int) config('transcribe.providers.stt.whisper_cpp.timeout', config('transcribe.process_timeout_seconds', 1200)),
-                    config('transcribe.providers.stt.whisper_cpp.threads'),
-                    (string) config('transcribe.providers.stt.whisper_cpp.output_format', 'srt'),
-                ),
+                'whisper_cpp' => (function (): WhisperCppSttProvider {
+                    $bestOf = config('transcribe.providers.stt.whisper_cpp.best_of');
+                    $beamSize = config('transcribe.providers.stt.whisper_cpp.beam_size');
+
+                    return new WhisperCppSttProvider(
+                        config('transcribe.providers.stt.whisper_cpp.binary'),
+                        config('transcribe.providers.stt.whisper_cpp.model'),
+                        (int) config('transcribe.providers.stt.whisper_cpp.timeout', config('transcribe.process_timeout_seconds', 1200)),
+                        config('transcribe.providers.stt.whisper_cpp.threads'),
+                        (string) config('transcribe.providers.stt.whisper_cpp.output_format', 'srt'),
+                        is_numeric($bestOf) ? (int) $bestOf : null,
+                        is_numeric($beamSize) ? (int) $beamSize : null,
+                        (bool) config('transcribe.providers.stt.whisper_cpp.suppress_nst', true),
+                    );
+                })(),
                 default => throw new InvalidArgumentException("Unsupported STT driver [{$driver}]."),
             };
         });
 
         $this->app->bind(Translator::class, function (): Translator {
-            $driver = config('transcribe.providers.translation.driver', 'deepl');
+            $driver = config('transcribe.providers.translation.driver', 'azure');
 
             return match ($driver) {
+                'azure' => new AzureTranslator(
+                    config('transcribe.providers.translation.azure.api_key'),
+                    (string) config('transcribe.providers.translation.azure.base_url'),
+                    config('transcribe.providers.translation.azure.region'),
+                    (string) config('transcribe.providers.translation.azure.api_version', '3.0'),
+                    config('transcribe.translation.retry_delays', [1000, 2000, 4000, 8000]),
+                    (bool) config('transcribe.translation.retry_only_429', true),
+                ),
                 'deepl' => new DeepLTranslator(
                     config('transcribe.providers.translation.deepl.api_key'),
                     config('transcribe.providers.translation.deepl.base_url'),
