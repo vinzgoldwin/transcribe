@@ -8,5 +8,6 @@ test('bootstrap script exists and has a bash shebang', function () {
     $contents = file_get_contents($path);
 
     expect(is_string($contents))->toBeTrue()
-        ->and(str_starts_with($contents, '#!/usr/bin/env bash'))->toBeTrue();
+        ->and(str_starts_with($contents, '#!/usr/bin/env bash'))->toBeTrue()
+        ->and(str_contains($contents, '--install-ffmpeg'))->toBeTrue();
 });

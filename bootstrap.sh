@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 env_created=0
 install_whisper_cpp=0
+install_ffmpeg=0
 skip_whisper_cpp=0
 
 get_env_value() {
@@ -121,6 +122,49 @@ ensure_whisper_cpp() {
     fi
 }
 
+ensure_ffmpeg() {
+    if command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if [ "$install_ffmpeg" -eq 0 ]; then
+        echo "Warning: missing optional tools: ffmpeg ffprobe"
+        echo "Transcription requires ffmpeg + ffprobe on PATH."
+        return 0
+    fi
+
+    local os
+    os="$(uname -s)"
+
+    if [ "$os" = "Darwin" ]; then
+        if ! command -v brew >/dev/null 2>&1; then
+            echo "Missing Homebrew. Install brew or install ffmpeg manually."
+            return 1
+        fi
+        brew install ffmpeg
+    elif [ "$os" = "Linux" ]; then
+        if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+        elif command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y ffmpeg
+        elif command -v pacman >/dev/null 2>&1; then
+            sudo pacman -S --noconfirm ffmpeg
+        else
+            echo "No supported package manager found. Install ffmpeg manually."
+            return 1
+        fi
+    else
+        echo "Unsupported OS: $os. Install ffmpeg manually."
+        return 1
+    fi
+
+    if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+        echo "ffmpeg install did not provide ffprobe. Check your installation."
+        return 1
+    fi
+}
+
 print_usage() {
     cat <<'EOF'
 Usage: ./bootstrap.sh [options]
@@ -130,6 +174,7 @@ Options:
   --skip-build    Skip Vite build step.
   --skip-tests    Skip running the bootstrap test.
   --install-whisper-cpp  Install whisper.cpp + model using paths in .env.
+  --install-ffmpeg       Auto-install ffmpeg/ffprobe if missing (requires sudo).
   --skip-whisper-cpp     Skip whisper.cpp setup (useful if you only use API STT).
   -h, --help      Show this help.
 EOF
@@ -152,6 +197,9 @@ while [ $# -gt 0 ]; do
             ;;
         --install-whisper-cpp)
             install_whisper_cpp=1
+            ;;
+        --install-ffmpeg)
+            install_ffmpeg=1
             ;;
         --skip-whisper-cpp)
             skip_whisper_cpp=1
@@ -185,19 +233,7 @@ if [ "${#missing_tools[@]}" -ne 0 ]; then
     exit 1
 fi
 
-optional_tools=(ffmpeg ffprobe)
-missing_optional=()
-
-for tool in "${optional_tools[@]}"; do
-    if ! command -v "$tool" >/dev/null 2>&1; then
-        missing_optional+=("$tool")
-    fi
-done
-
-if [ "${#missing_optional[@]}" -ne 0 ]; then
-    echo "Warning: missing optional tools: ${missing_optional[*]}"
-    echo "Transcription requires ffmpeg + ffprobe on PATH."
-fi
+ensure_ffmpeg
 
 if [ ! -f .env ]; then
     cp .env.example .env
