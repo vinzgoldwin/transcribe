@@ -106,13 +106,13 @@ const statusLabel = computed(() => {
         case 'presigning':
             return 'Preparing direct upload...';
         case 'uploading':
-            return 'Streaming the MP4 to storage...';
+            return 'Streaming the file to storage...';
         case 'finalizing':
             return 'Queueing transcription jobs...';
         case 'done':
             return 'Queued. Redirecting...';
         default:
-            return 'Drop an MP4 with Japanese audio.';
+            return 'Drop a video with Japanese audio.';
     }
 });
 
@@ -517,59 +517,55 @@ onBeforeUnmount(() => {
                             Queue-first · Silence-aware · JP → EN
                         </p>
 
-                        <div
-                            class="rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/80 p-5 shadow-[0_16px_36px_-28px_rgba(15,23,42,0.3)]"
-                        >
-                            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                        <div class="flex flex-col gap-3">
+                            <p
+                                class="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
+                            >
                                 How it works
                             </p>
-                            <div
-                                class="mt-4 grid gap-3 text-xs font-medium text-[var(--text)] sm:grid-cols-5"
-                            >
-                                <div class="flex items-center gap-2">
+                            <div class="flex flex-wrap items-center gap-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                                <span class="flex items-center gap-2 text-[var(--text)]">
                                     <span
-                                        class="h-2.5 w-2.5 rounded-full bg-[var(--surface-2)] animate-transcribe-step"
+                                        class="h-2 w-2 rounded-full bg-[var(--accent)]/70 animate-transcribe-step"
                                         style="--step-delay: 0s"
                                     ></span>
                                     Upload
-                                </div>
-                                <div class="flex items-center gap-2">
+                                </span>
+                                <span class="flex items-center gap-2 text-[var(--text)]">
                                     <span
-                                        class="h-2.5 w-2.5 rounded-full bg-[var(--surface-2)] animate-transcribe-step"
-                                        style="--step-delay: 1.2s"
+                                        class="h-2 w-2 rounded-full bg-[var(--surface-2)] animate-transcribe-step"
+                                        style="--step-delay: 1.1s"
                                     ></span>
                                     Detect pauses
-                                </div>
-                                <div class="flex items-center gap-2">
+                                </span>
+                                <span class="flex items-center gap-2 text-[var(--text)]">
                                     <span
-                                        class="h-2.5 w-2.5 rounded-full bg-[var(--surface-2)] animate-transcribe-step"
-                                        style="--step-delay: 2.4s"
+                                        class="h-2 w-2 rounded-full bg-[var(--surface-2)] animate-transcribe-step"
+                                        style="--step-delay: 2.2s"
                                     ></span>
                                     Transcribe
-                                </div>
-                                <div class="flex items-center gap-2">
+                                </span>
+                                <span class="flex items-center gap-2 text-[var(--text)]">
                                     <span
-                                        class="h-2.5 w-2.5 rounded-full bg-[var(--surface-2)] animate-transcribe-step"
-                                        style="--step-delay: 3.6s"
+                                        class="h-2 w-2 rounded-full bg-[var(--surface-2)] animate-transcribe-step"
+                                        style="--step-delay: 3.3s"
                                     ></span>
                                     Translate
-                                </div>
-                                <div class="flex items-center gap-2">
+                                </span>
+                                <span class="flex items-center gap-2 text-[var(--text)]">
                                     <span
-                                        class="h-2.5 w-2.5 rounded-full bg-[var(--surface-2)] animate-transcribe-step"
-                                        style="--step-delay: 4.8s"
+                                        class="h-2 w-2 rounded-full bg-[var(--surface-2)] animate-transcribe-step"
+                                        style="--step-delay: 4.4s"
                                     ></span>
                                     Export
-                                </div>
+                                </span>
                             </div>
-                            <div
-                                class="relative mt-4 h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]"
-                            >
+                            <div class="relative mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]/80">
                                 <div
-                                    class="absolute inset-y-0 left-0 w-16 animate-transcribe-progress rounded-full bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.6),transparent)]"
+                                    class="absolute inset-y-0 left-0 w-24 animate-transcribe-progress rounded-full bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.65),transparent)]"
                                 ></div>
                             </div>
-                            <p class="mt-3 text-xs text-muted-foreground">
+                            <p class="text-xs text-muted-foreground">
                                 Captions stay readable: 2 lines max, 1-6s on
                                 screen, pacing auto-balanced.
                             </p>
@@ -584,7 +580,7 @@ onBeforeUnmount(() => {
                             <p
                                 class="text-xs uppercase tracking-[0.3em] text-muted-foreground"
                             >
-                                Upload mp4
+                                Upload video
                             </p>
                             <h2
                                 class="text-2xl font-semibold text-[var(--text)]"
@@ -626,26 +622,26 @@ onBeforeUnmount(() => {
                             <span
                                 class="text-[11px] uppercase tracking-[0.2em] text-muted-foreground/80 transition group-hover:text-muted-foreground"
                             >
-                                Select mp4
+                                Select file
                             </span>
                             <span class="text-base font-semibold text-[var(--text)]">
                                 {{
                                     selectedFile
                                         ? selectedFile.name
-                                        : 'Drop a Japanese-audio MP4 here'
+                                        : 'Drop a video file here'
                                 }}
                             </span>
                             <span class="text-xs text-muted-foreground/80">
                                 {{
                                     selectedFile
                                         ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`
-                                        : 'Direct-to-storage - no PHP uploads'
+                                        : 'Direct-to-storage — no PHP uploads'
                                 }}
                             </span>
                         </button>
                         <div class="flex items-center justify-between text-xs">
                             <span class="text-muted-foreground">
-                                MP4 only. Shortcut: Shift + U
+                                MP4 only · Shortcut: Shift + U
                             </span>
                             <button
                                 v-if="selectedFile"
@@ -745,7 +741,7 @@ onBeforeUnmount(() => {
                             </div>
 
                             <p class="text-xs text-muted-foreground">
-                                Press Shift + U to pick a file quickly.
+                                You can replace the file before starting.
                             </p>
                         </div>
                     </div>
@@ -753,96 +749,68 @@ onBeforeUnmount(() => {
             </section>
 
             <!-- Stats Overview -->
-            <section class="animate-transcribe-fade grid gap-4 sm:grid-cols-2 lg:grid-cols-4" style="animation-delay: 0.1s">
-                <!-- Total -->
+            <section class="animate-transcribe-fade" style="animation-delay: 0.1s">
                 <div
-                    class="group relative overflow-hidden rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/70 p-5 shadow-[0_15px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_-22px_rgba(15,23,42,0.3)]"
+                    class="rounded-3xl border border-[color:var(--border)]/70 bg-[var(--surface)]/70 p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.35)] backdrop-blur-sm"
                 >
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-wrap items-start justify-between gap-4">
                         <div>
-                            <p class="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                                Total
+                            <p class="text-[10px] uppercase tracking-[0.4em] text-muted-foreground">
+                                Overview
                             </p>
-                            <p class="mt-1 text-3xl font-semibold text-[var(--text)]">
+                            <h3 class="mt-2 text-xl font-semibold text-[var(--text)]">
+                                Queue health at a glance
+                            </h3>
+                            <p class="mt-2 text-sm text-muted-foreground">
+                                Live counts for recent transcription activity.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        class="mt-6 grid divide-y divide-[color:var(--border)]/70 sm:grid-cols-2 sm:divide-y-0 sm:divide-x lg:grid-cols-4"
+                    >
+                        <div class="flex flex-col gap-2 p-4">
+                            <span class="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                                Total runs
+                            </span>
+                            <span class="text-3xl font-semibold text-[var(--text)]">
                                 {{ stats.total }}
-                            </p>
+                            </span>
+                            <span class="text-xs text-muted-foreground">All time</span>
                         </div>
-                        <div
-                            class="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--surface-2)]"
-                        >
-                            <svg class="h-5 w-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Processing -->
-                <div
-                    class="group relative overflow-hidden rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/70 p-5 shadow-[0_15px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_-22px_rgba(15,23,42,0.3)]"
-                >
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                        <div class="flex flex-col gap-2 p-4">
+                            <span class="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
                                 Processing
-                            </p>
-                            <p class="mt-1 text-3xl font-semibold text-amber-500">
+                            </span>
+                            <span class="text-3xl font-semibold text-amber-500">
                                 {{ stats.processing }}
-                            </p>
+                            </span>
+                            <span class="text-xs text-muted-foreground">
+                                Uploading or transcribing
+                            </span>
                         </div>
-                        <div
-                            class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10"
-                        >
-                            <div class="relative">
-                                <div v-if="stats.processing > 0" class="h-3 w-3 animate-ping rounded-full bg-amber-400 opacity-75" />
-                                <div class="absolute inset-0 h-3 w-3 rounded-full bg-amber-500" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Completed -->
-                <div
-                    class="group relative overflow-hidden rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/70 p-5 shadow-[0_15px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_-22px_rgba(15,23,42,0.3)]"
-                >
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                        <div class="flex flex-col gap-2 p-4">
+                            <span class="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
                                 Completed
-                            </p>
-                            <p class="mt-1 text-3xl font-semibold text-emerald-500">
+                            </span>
+                            <span class="text-3xl font-semibold text-emerald-500">
                                 {{ stats.completed }}
-                            </p>
+                            </span>
+                            <span class="text-xs text-muted-foreground">
+                                Ready to review
+                            </span>
                         </div>
-                        <div
-                            class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10"
-                        >
-                            <svg class="h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Awaiting Translation -->
-                <div
-                    class="group relative overflow-hidden rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/70 p-5 shadow-[0_15px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_-22px_rgba(15,23,42,0.3)]"
-                >
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+                        <div class="flex flex-col gap-2 p-4">
+                            <span class="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
                                 Awaiting
-                            </p>
-                            <p class="mt-1 text-3xl font-semibold text-sky-500">
+                            </span>
+                            <span class="text-3xl font-semibold text-sky-500">
                                 {{ stats.awaitingTranslation }}
-                            </p>
-                        </div>
-                        <div
-                            class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10"
-                        >
-                            <svg class="h-5 w-5 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                            </svg>
+                            </span>
+                            <span class="text-xs text-muted-foreground">
+                                Translation queued
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -850,13 +818,16 @@ onBeforeUnmount(() => {
 
             <!-- Recent Runs with Enhanced List -->
             <section class="animate-transcribe-fade flex flex-col gap-4" style="animation-delay: 0.2s">
-                <div class="flex items-center justify-between">
-                    <h3
-                        class="text-xl font-semibold text-[var(--text)]"
-                    >
-                        Recent runs
-                    </h3>
-                    <div class="flex items-center gap-3">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <h3 class="text-xl font-semibold text-[var(--text)]">
+                            Recent runs
+                        </h3>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            Follow uploads, translations, and final delivery.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
                         <button
                             v-if="stats.awaitingTranslation > 0"
                             type="button"
@@ -886,229 +857,154 @@ onBeforeUnmount(() => {
                                 Timeline
                             </button>
                         </div>
-                        <span
-                            class="text-xs uppercase tracking-[0.3em] text-muted-foreground"
-                        >
+                        <span class="text-xs uppercase tracking-[0.3em] text-muted-foreground">
                             {{ filteredTranscriptions.length }} shown
                         </span>
                     </div>
                 </div>
 
-                <div
-                    class="flex flex-wrap items-center gap-4 rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/70 p-4 text-xs text-muted-foreground"
-                >
-                    <div class="flex items-center gap-3">
-                        <span class="text-[10px] font-semibold uppercase tracking-[0.25em]">
-                            Status
-                        </span>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger as-child>
-                                <button
-                                    type="button"
-                                    class="inline-flex h-9 items-center gap-2 rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-4 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text)] shadow-[0_10px_20px_-16px_rgba(15,23,42,0.25)] transition hover:border-[color:var(--accent)]/40"
-                                >
-                                    {{ statusFilterLabel }}
-                                    <ChevronDown class="size-4 text-muted-foreground" />
-                                </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                                class="min-w-[200px] rounded-2xl border border-[color:var(--border)]/80 bg-[var(--surface)]/95 p-2 text-[var(--text)] shadow-[0_20px_40px_-28px_rgba(15,23,42,0.4)] backdrop-blur"
-                                align="start"
-                                :side-offset="8"
-                            >
-                                <DropdownMenuItem
-                                    v-for="option in statusOptions"
-                                    :key="option.value"
-                                    class="cursor-pointer rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground focus:bg-[var(--surface-2)] focus:text-[var(--text)]"
-                                    :class="option.value === statusFilter ? 'bg-[var(--surface-2)] text-[var(--text)]' : ''"
-                                    @click="statusFilter = option.value"
-                                >
-                                    {{ option.label }}
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-
-                    <div class="flex items-center gap-3">
-                        <span class="text-[10px] font-semibold uppercase tracking-[0.25em]">
-                            Sort
-                        </span>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger as-child>
-                                <button
-                                    type="button"
-                                    class="inline-flex h-9 items-center gap-2 rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-4 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text)] shadow-[0_10px_20px_-16px_rgba(15,23,42,0.25)] transition hover:border-[color:var(--accent)]/40"
-                                >
-                                    {{ sortLabel }}
-                                    <ChevronDown class="size-4 text-muted-foreground" />
-                                </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                                class="min-w-[180px] rounded-2xl border border-[color:var(--border)]/80 bg-[var(--surface)]/95 p-2 text-[var(--text)] shadow-[0_20px_40px_-28px_rgba(15,23,42,0.4)] backdrop-blur"
-                                align="start"
-                                :side-offset="8"
-                            >
-                                <DropdownMenuItem
-                                    v-for="option in sortOptions"
-                                    :key="option.value"
-                                    class="cursor-pointer rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground focus:bg-[var(--surface-2)] focus:text-[var(--text)]"
-                                    :class="option.value === sortBy ? 'bg-[var(--surface-2)] text-[var(--text)]' : ''"
-                                    @click="sortBy = option.value"
-                                >
-                                    {{ option.label }}
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-
-                    <button
-                        v-if="statusFilter !== 'all' || sortBy !== 'newest'"
-                        type="button"
-                        class="ml-auto rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground transition hover:text-foreground"
-                        @click="resetFilters"
+                <div class="rounded-3xl border border-[color:var(--border)]/70 bg-[var(--surface)]/70 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.35)] backdrop-blur-sm">
+                    <div
+                        class="flex flex-wrap items-center gap-4 border-b border-[color:var(--border)]/70 p-4 text-xs text-muted-foreground"
                     >
-                        Clear filters
-                    </button>
-                </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-[10px] font-semibold uppercase tracking-[0.25em]">
+                                Status
+                            </span>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger as-child>
+                                    <button
+                                        type="button"
+                                        class="inline-flex h-9 items-center gap-2 rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-4 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text)] shadow-[0_10px_20px_-16px_rgba(15,23,42,0.25)] transition hover:border-[color:var(--accent)]/40"
+                                    >
+                                        {{ statusFilterLabel }}
+                                        <ChevronDown class="size-4 text-muted-foreground" />
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                    class="min-w-[200px] rounded-2xl border border-[color:var(--border)]/80 bg-[var(--surface)]/95 p-2 text-[var(--text)] shadow-[0_20px_40px_-28px_rgba(15,23,42,0.4)] backdrop-blur"
+                                    align="start"
+                                    :side-offset="8"
+                                >
+                                    <DropdownMenuItem
+                                        v-for="option in statusOptions"
+                                        :key="option.value"
+                                        class="cursor-pointer rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground focus:bg-[var(--surface-2)] focus:text-[var(--text)]"
+                                        :class="option.value === statusFilter ? 'bg-[var(--surface-2)] text-[var(--text)]' : ''"
+                                        @click="statusFilter = option.value"
+                                    >
+                                        {{ option.label }}
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
 
-                <div
-                    v-if="filteredTranscriptions.length === 0"
-                    class="rounded-2xl border border-dashed border-[color:var(--border)]/70 bg-[var(--surface)]/60 p-8 text-center"
-                >
-                    <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--surface-2)]">
-                        <svg class="h-8 w-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
-                        </svg>
-                    </div>
-                    <p class="text-sm font-semibold text-[var(--text)]">
-                        {{
-                            props.transcriptions.length === 0
-                                ? 'No transcriptions yet'
-                                : 'No transcriptions match this view'
-                        }}
-                    </p>
-                    <p class="mt-1 text-sm text-muted-foreground">
-                        {{
-                            props.transcriptions.length === 0
-                                ? 'Upload a new MP4 to get started.'
-                                : 'Adjust filters or upload a new MP4 to get started.'
-                        }}
-                    </p>
-                    <div class="mt-4 flex flex-wrap justify-center gap-3">
-                        <button
-                            type="button"
-                            class="rounded-full bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground shadow-[0_12px_24px_-18px_rgba(15,23,42,0.35)]"
-                            @click="
-                                () => {
-                                    scrollToUpload();
-                                    handlePick();
-                                }
-                            "
-                        >
-                            Upload MP4
-                        </button>
+                        <div class="flex items-center gap-3">
+                            <span class="text-[10px] font-semibold uppercase tracking-[0.25em]">
+                                Sort
+                            </span>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger as-child>
+                                    <button
+                                        type="button"
+                                        class="inline-flex h-9 items-center gap-2 rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-4 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text)] shadow-[0_10px_20px_-16px_rgba(15,23,42,0.25)] transition hover:border-[color:var(--accent)]/40"
+                                    >
+                                        {{ sortLabel }}
+                                        <ChevronDown class="size-4 text-muted-foreground" />
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                    class="min-w-[180px] rounded-2xl border border-[color:var(--border)]/80 bg-[var(--surface)]/95 p-2 text-[var(--text)] shadow-[0_20px_40px_-28px_rgba(15,23,42,0.4)] backdrop-blur"
+                                    align="start"
+                                    :side-offset="8"
+                                >
+                                    <DropdownMenuItem
+                                        v-for="option in sortOptions"
+                                        :key="option.value"
+                                        class="cursor-pointer rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground focus:bg-[var(--surface-2)] focus:text-[var(--text)]"
+                                        :class="option.value === sortBy ? 'bg-[var(--surface-2)] text-[var(--text)]' : ''"
+                                        @click="sortBy = option.value"
+                                    >
+                                        {{ option.label }}
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+
                         <button
                             v-if="statusFilter !== 'all' || sortBy !== 'newest'"
                             type="button"
-                            class="rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"
+                            class="ml-auto rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground transition hover:text-foreground"
                             @click="resetFilters"
                         >
                             Clear filters
                         </button>
                     </div>
-                </div>
 
-                <div v-else-if="viewMode === 'list'" class="grid gap-3">
-                    <Link
-                        v-for="(transcription, index) in filteredTranscriptions"
-                        :key="transcription.id"
-                        :href="transcription.show_url"
-                        class="group relative flex items-center gap-4 rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/70 p-5 text-sm text-muted-foreground shadow-[0_18px_35px_-28px_rgba(15,23,42,0.3)] transition-all duration-300 hover:-translate-y-[2px] hover:border-[color:var(--border)] hover:shadow-[0_25px_50px_-20px_rgba(15,23,42,0.35)]"
-                        :style="{ animationDelay: `${0.02 * index}s` }"
+                    <div
+                        v-if="filteredTranscriptions.length === 0"
+                        class="p-8 text-center"
                     >
-                        <div
-                            class="h-3 w-3 shrink-0 rounded-full"
-                            :class="[statusBgColor(transcription.status), statusGlow(transcription.status)]"
-                        />
-
-                        <div class="min-w-0 flex-1">
-                            <span class="truncate text-base font-semibold text-[var(--text)]">
-                                {{ transcription.filename }}
-                            </span>
-                            <div class="mt-2 h-0.5 w-full overflow-hidden rounded-full bg-[var(--surface-2)]/80">
-                                <div
-                                    class="h-full rounded-full transition-all"
-                                    :class="progressBarColor(transcription.status)"
-                                    :style="{ width: `${progressPercent(transcription)}%` }"
-                                ></div>
-                            </div>
-                            <div
-                                class="mt-1 flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.15em] text-muted-foreground"
-                            >
-                                <span>
-                                    {{
-                                        transcription.duration_seconds
-                                            ? `${transcription.duration_seconds.toFixed(1)}s`
-                                            : 'Pending'
-                                    }}
-                                </span>
-                                <span>
-                                    {{ transcription.chunks_completed }} /
-                                    {{ transcription.chunks_total }} chunks
-                                </span>
-                                <span
-                                    v-if="transcription.created_at"
-                                    :title="formatAbsoluteTime(transcription.created_at)"
-                                >
-                                    {{ formatRelativeTime(transcription.created_at, now.value) }}
-                                </span>
-                            </div>
+                        <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--surface-2)]">
+                            <svg class="h-8 w-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                            </svg>
                         </div>
-
-                        <div class="flex w-32 justify-center">
-                            <span
-                                class="status-pill"
-                                :class="statusColor(transcription.status)"
+                        <p class="text-sm font-semibold text-[var(--text)]">
+                            {{
+                                props.transcriptions.length === 0
+                                    ? 'No transcriptions yet'
+                                    : 'No transcriptions match this view'
+                            }}
+                        </p>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            {{
+                                props.transcriptions.length === 0
+                                    ? 'Upload a new video to get started.'
+                                    : 'Adjust filters or upload a new video to get started.'
+                            }}
+                        </p>
+                        <div class="mt-4 flex flex-wrap justify-center gap-3">
+                            <button
+                                type="button"
+                                class="rounded-full bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground shadow-[0_12px_24px_-18px_rgba(15,23,42,0.35)]"
+                                @click="
+                                    () => {
+                                        scrollToUpload();
+                                        handlePick();
+                                    }
+                                "
                             >
-                                {{ formatStatus(transcription.status) }}
-                            </span>
+                            Upload video
+                            </button>
+                            <button
+                                v-if="statusFilter !== 'all' || sortBy !== 'newest'"
+                                type="button"
+                                class="rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"
+                                @click="resetFilters"
+                            >
+                                Clear filters
+                            </button>
                         </div>
+                    </div>
 
-                        <svg
-                            class="h-5 w-5 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-1"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                        </svg>
-                    </Link>
-                </div>
-                <div v-else class="relative pl-6">
-                    <div class="absolute left-2 top-0 h-full w-px bg-[var(--border)]/70"></div>
-                    <div class="grid gap-6">
+                    <div v-else-if="viewMode === 'list'" class="divide-y divide-[color:var(--border)]/70">
                         <Link
                             v-for="(transcription, index) in filteredTranscriptions"
                             :key="transcription.id"
                             :href="transcription.show_url"
-                            class="group relative flex items-start gap-4"
+                            class="group flex items-center gap-4 px-4 py-4 text-sm text-muted-foreground transition-all duration-300 hover:bg-[var(--surface-2)]/70"
                             :style="{ animationDelay: `${0.02 * index}s` }"
                         >
                             <div
-                                class="mt-2 h-3 w-3 rounded-full"
+                                class="h-3 w-3 shrink-0 rounded-full"
                                 :class="[statusBgColor(transcription.status), statusGlow(transcription.status)]"
-                            ></div>
-                            <div
-                                class="flex-1 rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/70 p-5 shadow-[0_16px_30px_-26px_rgba(15,23,42,0.3)] transition hover:-translate-y-[2px]"
-                            >
-                                <div class="flex items-center justify-between gap-4">
-                                    <span class="truncate text-base font-semibold text-[var(--text)]">
-                                        {{ transcription.filename }}
-                                    </span>
-                                    <span class="status-pill" :class="statusColor(transcription.status)">
-                                        {{ formatStatus(transcription.status) }}
-                                    </span>
-                                </div>
+                            />
+
+                            <div class="min-w-0 flex-1">
+                                <span class="truncate text-base font-semibold text-[var(--text)]">
+                                    {{ transcription.filename }}
+                                </span>
                                 <div class="mt-2 h-0.5 w-full overflow-hidden rounded-full bg-[var(--surface-2)]/80">
                                     <div
                                         class="h-full rounded-full transition-all"
@@ -1116,7 +1012,9 @@ onBeforeUnmount(() => {
                                         :style="{ width: `${progressPercent(transcription)}%` }"
                                     ></div>
                                 </div>
-                                <div class="mt-3 flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                                <div
+                                    class="mt-1 flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.15em] text-muted-foreground"
+                                >
                                     <span>
                                         {{
                                             transcription.duration_seconds
@@ -1136,7 +1034,78 @@ onBeforeUnmount(() => {
                                     </span>
                                 </div>
                             </div>
+
+                            <div class="flex w-32 justify-center">
+                                <span
+                                    class="status-pill"
+                                    :class="statusColor(transcription.status)"
+                                >
+                                    {{ formatStatus(transcription.status) }}
+                                </span>
+                            </div>
+
+                            <svg
+                                class="h-5 w-5 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-1"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
                         </Link>
+                    </div>
+                    <div v-else class="relative">
+                        <div class="pointer-events-none absolute left-6 top-0 bottom-0 w-px bg-[var(--border)]/70"></div>
+                        <div class="divide-y divide-[color:var(--border)]/70">
+                            <Link
+                                v-for="(transcription, index) in filteredTranscriptions"
+                                :key="transcription.id"
+                                :href="transcription.show_url"
+                                class="group relative flex items-start gap-4 px-4 py-4 pl-12 text-sm text-muted-foreground transition hover:bg-[var(--surface-2)]/70"
+                                :style="{ animationDelay: `${0.02 * index}s` }"
+                            >
+                                <div
+                                    class="absolute left-6 top-7 h-2.5 w-2.5 -translate-x-1/2 rounded-full"
+                                    :class="[statusBgColor(transcription.status), statusGlow(transcription.status)]"
+                                ></div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <span class="truncate text-base font-semibold text-[var(--text)]">
+                                            {{ transcription.filename }}
+                                        </span>
+                                        <span class="status-pill" :class="statusColor(transcription.status)">
+                                            {{ formatStatus(transcription.status) }}
+                                        </span>
+                                    </div>
+                                    <div class="mt-2 h-0.5 w-full overflow-hidden rounded-full bg-[var(--surface-2)]/80">
+                                        <div
+                                            class="h-full rounded-full transition-all"
+                                            :class="progressBarColor(transcription.status)"
+                                            :style="{ width: `${progressPercent(transcription)}%` }"
+                                        ></div>
+                                    </div>
+                                    <div class="mt-3 flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                                        <span>
+                                            {{
+                                                transcription.duration_seconds
+                                                    ? `${transcription.duration_seconds.toFixed(1)}s`
+                                                    : 'Pending'
+                                            }}
+                                        </span>
+                                        <span>
+                                            {{ transcription.chunks_completed }} /
+                                            {{ transcription.chunks_total }} chunks
+                                        </span>
+                                        <span
+                                            v-if="transcription.created_at"
+                                            :title="formatAbsoluteTime(transcription.created_at)"
+                                        >
+                                            {{ formatRelativeTime(transcription.created_at, now.value) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </section>

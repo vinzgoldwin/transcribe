@@ -485,26 +485,17 @@ onBeforeUnmount(() => {
                 <div
                     class="absolute -right-24 top-[-40%] h-[20rem] w-[20rem] rounded-full bg-[radial-gradient(circle_at_center,hsl(332_75%_90%/0.4),transparent_70%)] blur-2xl"
                 ></div>
-                <div class="relative grid gap-8 lg:grid-cols-[1.25fr_0.75fr]">
+                <div class="relative grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
                     <div class="flex flex-col gap-6">
                         <div class="flex flex-col gap-3">
-                            <p
-                                class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted-foreground"
-                            >
-                                Transcription run
+                            <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted-foreground">
+                                Run overview
                             </p>
-                            <h1
-                                class="text-3xl font-semibold tracking-[-0.02em] text-[var(--text)] sm:text-4xl"
-                            >
+                            <h1 class="text-3xl font-semibold tracking-[-0.02em] text-[var(--text)] sm:text-4xl">
                                 {{ transcription.filename }}
                             </h1>
-                            <div
-                                class="flex flex-wrap items-center gap-3 text-xs text-muted-foreground"
-                            >
-                                <span
-                                    class="status-pill"
-                                    :class="statusColor(transcription.status)"
-                                >
+                            <div class="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                <span class="status-pill" :class="statusColor(transcription.status)">
                                     {{ statusLabel }}
                                 </span>
                                 <span
@@ -515,78 +506,62 @@ onBeforeUnmount(() => {
                             </div>
                         </div>
 
-                        <div class="grid gap-4 sm:grid-cols-3">
-                            <div
-                                class="rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/85 p-4 shadow-[0_14px_30px_-24px_rgba(15,23,42,0.25)]"
-                            >
-                                <p
-                                    class="text-[11px] uppercase tracking-[0.3em] text-muted-foreground"
-                                >
-                                    Created
-                                </p>
-                                <p
-                                    class="mt-2 text-sm font-semibold text-[var(--text)]"
-                                >
-                                    {{
-                                        formatAbsoluteTime(
-                                            transcription.created_at,
-                                        ) || '--'
-                                    }}
-                                </p>
-                                <p class="mt-1 text-xs text-muted-foreground">
-                                    {{
-                                        transcription.created_at
-                                            ? formatRelativeTime(
-                                                  transcription.created_at,
-                                                  now.value,
-                                              )
-                                            : 'Just now'
-                                    }}
-                                </p>
-                            </div>
-                            <div
-                                class="rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/85 p-4 shadow-[0_14px_30px_-24px_rgba(15,23,42,0.25)]"
-                            >
-                                <p
-                                    class="text-[11px] uppercase tracking-[0.3em] text-muted-foreground"
-                                >
-                                    Duration
-                                </p>
-                                <p
-                                    class="mt-2 text-sm font-semibold text-[var(--text)]"
-                                >
-                                    {{ formattedDuration }}
-                                </p>
-                                <p class="mt-1 text-xs text-muted-foreground">
-                                    Total runtime
-                                </p>
-                            </div>
-                            <div
-                                class="rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/85 p-4 shadow-[0_14px_30px_-24px_rgba(15,23,42,0.25)]"
-                            >
-                                <p
-                                    class="text-[11px] uppercase tracking-[0.3em] text-muted-foreground"
-                                >
-                                    Chunks
-                                </p>
-                                <p
-                                    class="mt-2 text-sm font-semibold text-[var(--text)]"
-                                >
-                                    {{
-                                        transcription.chunks_total
-                                            ? `${transcription.chunks_completed}/${transcription.chunks_total}`
-                                            : '--'
-                                    }}
-                                </p>
-                                <p class="mt-1 text-xs text-muted-foreground">
-                                    Silence-aware splits
-                                </p>
+                        <div
+                            class="rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/85 shadow-[0_14px_30px_-24px_rgba(15,23,42,0.25)]"
+                        >
+                            <div class="grid divide-y divide-[color:var(--border)]/70 sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
+                                <div class="p-4">
+                                    <p class="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+                                        Created
+                                    </p>
+                                    <p class="mt-2 text-sm font-semibold text-[var(--text)]">
+                                        {{
+                                            formatAbsoluteTime(
+                                                transcription.created_at,
+                                            ) || '--'
+                                        }}
+                                    </p>
+                                    <p class="mt-1 text-xs text-muted-foreground">
+                                        {{
+                                            transcription.created_at
+                                                ? formatRelativeTime(
+                                                      transcription.created_at,
+                                                      now.value,
+                                                  )
+                                                : 'Just now'
+                                        }}
+                                    </p>
+                                </div>
+                                <div class="p-4">
+                                    <p class="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+                                        Duration
+                                    </p>
+                                    <p class="mt-2 text-sm font-semibold text-[var(--text)]">
+                                        {{ formattedDuration }}
+                                    </p>
+                                    <p class="mt-1 text-xs text-muted-foreground">
+                                        Total runtime
+                                    </p>
+                                </div>
+                                <div class="p-4">
+                                    <p class="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+                                        Chunks
+                                    </p>
+                                    <p class="mt-2 text-sm font-semibold text-[var(--text)]">
+                                        {{
+                                            transcription.chunks_total
+                                                ? `${transcription.chunks_completed}/${transcription.chunks_total}`
+                                                : '--'
+                                        }}
+                                    </p>
+                                    <p class="mt-1 text-xs text-muted-foreground">
+                                        Silence-aware splits
+                                    </p>
+                                </div>
                             </div>
                         </div>
 
-                        <div
-                            class="rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface-2)]/70 p-4 text-sm text-muted-foreground"
-                        >
+                        <div class="rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface-2)]/70 p-4 text-sm text-muted-foreground">
                             {{ stageMessage }}
                         </div>
 
@@ -606,10 +581,8 @@ onBeforeUnmount(() => {
                             class="rounded-3xl border border-[color:var(--border)]/70 bg-[var(--surface)]/85 p-6 shadow-[0_20px_45px_-34px_rgba(15,23,42,0.3)]"
                         >
                             <div class="flex items-center justify-between">
-                                <p
-                                    class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted-foreground"
-                                >
-                                    Chunk progress
+                                <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted-foreground">
+                                    Progress
                                 </p>
                                 <button
                                     type="button"
@@ -623,24 +596,15 @@ onBeforeUnmount(() => {
                             </div>
 
                             <div class="mt-6 flex items-center gap-6">
-                                <div
-                                    class="relative h-24 w-24 rounded-full p-1"
-                                    :style="progressRingStyle"
-                                >
-                                    <div
-                                        class="flex h-full w-full items-center justify-center rounded-full bg-[var(--surface)]"
-                                    >
-                                        <span
-                                            class="text-lg font-semibold text-[var(--text)]"
-                                        >
+                                <div class="relative h-24 w-24 rounded-full p-1" :style="progressRingStyle">
+                                    <div class="flex h-full w-full items-center justify-center rounded-full bg-[var(--surface)]">
+                                        <span class="text-lg font-semibold text-[var(--text)]">
                                             {{ progressPercent }}%
                                         </span>
                                     </div>
                                 </div>
                                 <div>
-                                    <p
-                                        class="text-lg font-semibold text-[var(--text)]"
-                                    >
+                                    <p class="text-lg font-semibold text-[var(--text)]">
                                         {{ chunkSummary }}
                                     </p>
                                     <p class="mt-1 text-xs text-muted-foreground">
@@ -649,9 +613,7 @@ onBeforeUnmount(() => {
                                 </div>
                             </div>
 
-                            <div
-                                class="mt-5 h-2 w-full overflow-hidden rounded-full bg-[var(--surface-2)]"
-                            >
+                            <div class="mt-5 h-2 w-full overflow-hidden rounded-full bg-[var(--surface-2)]">
                                 <div
                                     class="h-full rounded-full bg-[linear-gradient(90deg,var(--accent),hsl(332_70%_70%))]"
                                     :style="{ width: `${progressPercent}%` }"
@@ -659,44 +621,51 @@ onBeforeUnmount(() => {
                             </div>
                         </div>
 
-                        <div class="flex flex-col gap-3">
-                            <button
-                                type="button"
-                                class="flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-primary-foreground shadow-[0_18px_36px_-24px_rgba(15,23,42,0.35)] transition hover:-translate-y-0.5 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-                                :disabled="!hasAnyDownloads"
-                                @click="downloadAll"
-                            >
-                                <Download class="h-4 w-4" />
-                                Download all
-                            </button>
+                        <div
+                            class="rounded-3xl border border-[color:var(--border)]/70 bg-[var(--surface)]/85 p-6 shadow-[0_20px_45px_-34px_rgba(15,23,42,0.3)]"
+                        >
+                            <p class="text-[11px] font-semibold uppercase tracking-[0.35em] text-muted-foreground">
+                                Quick actions
+                            </p>
+                            <div class="mt-4 grid gap-3">
+                                <button
+                                    type="button"
+                                    class="flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-primary-foreground shadow-[0_18px_36px_-24px_rgba(15,23,42,0.35)] transition hover:-translate-y-0.5 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                                    :disabled="!hasAnyDownloads"
+                                    @click="downloadAll"
+                                >
+                                    <Download class="h-4 w-4" />
+                                    Download exports
+                                </button>
 
-                            <button
-                                v-if="showTranslateAction"
-                                type="button"
-                                class="flex items-center justify-center gap-2 rounded-full border border-[color:var(--accent)]/30 bg-[var(--accent-soft)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-[var(--accent)] shadow-[0_18px_36px_-24px_rgba(15,23,42,0.25)] transition hover:-translate-y-0.5 hover:bg-[var(--accent-soft)]/80 disabled:cursor-not-allowed disabled:opacity-50"
-                                :disabled="isTranslating"
-                                @click="startTranslation"
-                            >
-                                <Sparkles class="h-4 w-4" />
-                                {{ isTranslating ? 'Starting...' : 'Translate to EN' }}
-                            </button>
+                                <button
+                                    v-if="showTranslateAction"
+                                    type="button"
+                                    class="flex items-center justify-center gap-2 rounded-full border border-[color:var(--accent)]/30 bg-[var(--accent-soft)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-[var(--accent)] shadow-[0_18px_36px_-24px_rgba(15,23,42,0.25)] transition hover:-translate-y-0.5 hover:bg-[var(--accent-soft)]/80 disabled:cursor-not-allowed disabled:opacity-50"
+                                    :disabled="isTranslating"
+                                    @click="startTranslation"
+                                >
+                                    <Sparkles class="h-4 w-4" />
+                                    {{ isTranslating ? 'Starting...' : 'Translate to EN' }}
+                                </button>
 
-                            <button
-                                type="button"
-                                class="flex items-center justify-center gap-2 rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground transition hover:text-[var(--text)]"
-                                @click="copyShareLink"
-                            >
-                                <ClipboardCopy class="h-4 w-4" />
-                                Copy share link
-                            </button>
+                                <button
+                                    type="button"
+                                    class="flex items-center justify-center gap-2 rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground transition hover:text-[var(--text)]"
+                                    @click="copyShareLink"
+                                >
+                                    <ClipboardCopy class="h-4 w-4" />
+                                    Copy run link
+                                </button>
 
-                            <Link
-                                :href="dashboard().url"
-                                class="flex items-center justify-center gap-2 rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground transition hover:text-[var(--text)]"
-                            >
-                                <ArrowLeft class="h-4 w-4" />
-                                Back to transcribe
-                            </Link>
+                                <Link
+                                    :href="dashboard().url"
+                                    class="flex items-center justify-center gap-2 rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground transition hover:text-[var(--text)]"
+                                >
+                                    <ArrowLeft class="h-4 w-4" />
+                                    Back to transcribe
+                                </Link>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -709,111 +678,81 @@ onBeforeUnmount(() => {
                 <div
                     class="rounded-3xl border border-[color:var(--border)]/70 bg-[var(--surface)]/80 p-6 shadow-[0_24px_60px_-38px_rgba(15,23,42,0.35)]"
                 >
-                    <div class="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                            <h2 class="text-lg font-semibold text-[var(--text)]">
-                                Output files
-                            </h2>
-                            <p class="mt-1 text-sm text-muted-foreground">
-                                Download subtitle exports as soon as they are ready.
-                            </p>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <button
-                                type="button"
-                                class="inline-flex items-center gap-2 rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground transition hover:text-[var(--text)]"
-                                @click="copyShareLink"
-                            >
-                                <ClipboardCopy class="h-3 w-3" />
-                                Copy link
-                            </button>
-                            <button
-                                type="button"
-                                class="inline-flex items-center gap-2 rounded-full bg-primary px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-                                :disabled="!hasAnyDownloads"
-                                @click="downloadAll"
-                            >
-                                <Download class="h-3 w-3" />
-                                Download all
-                            </button>
+                    <div>
+                        <h2 class="text-lg font-semibold text-[var(--text)]">
+                            Downloads
+                        </h2>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            Subtitle exports appear as soon as each format is ready.
+                        </p>
+                    </div>
+
+                    <div class="mt-6 overflow-hidden rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/85">
+                        <div class="divide-y divide-[color:var(--border)]/70">
+                            <div class="flex items-center justify-between gap-4 p-4">
+                                <div class="flex items-center gap-4">
+                                    <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--accent-soft)]">
+                                        <FileText class="h-5 w-5 text-[var(--accent)]" />
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-semibold text-[var(--text)]">
+                                            SRT subtitles
+                                        </p>
+                                        <p class="text-xs text-muted-foreground">
+                                            SubRip format for editorial tools
+                                        </p>
+                                    </div>
+                                </div>
+                                <a
+                                    v-if="srtUrl"
+                                    :href="srtUrl"
+                                    class="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary-foreground shadow-[0_12px_24px_-18px_rgba(15,23,42,0.35)] transition hover:-translate-y-0.5 hover:bg-primary/90"
+                                >
+                                    <FileDown class="h-4 w-4" />
+                                    Download
+                                </a>
+                                <span
+                                    v-else
+                                    class="rounded-full border border-[color:var(--border)]/70 bg-[var(--surface-2)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
+                                >
+                                    Pending
+                                </span>
+                            </div>
+
+                            <div class="flex items-center justify-between gap-4 p-4">
+                                <div class="flex items-center gap-4">
+                                    <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--surface-2)]">
+                                        <FileText class="h-5 w-5 text-muted-foreground" />
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-semibold text-[var(--text)]">
+                                            VTT subtitles
+                                        </p>
+                                        <p class="text-xs text-muted-foreground">
+                                            WebVTT for playback systems
+                                        </p>
+                                    </div>
+                                </div>
+                                <a
+                                    v-if="vttUrl"
+                                    :href="vttUrl"
+                                    class="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary-foreground shadow-[0_12px_24px_-18px_rgba(15,23,42,0.35)] transition hover:-translate-y-0.5 hover:bg-primary/90"
+                                >
+                                    <FileDown class="h-4 w-4" />
+                                    Download
+                                </a>
+                                <span
+                                    v-else
+                                    class="rounded-full border border-[color:var(--border)]/70 bg-[var(--surface-2)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
+                                >
+                                    Pending
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="mt-6 grid gap-4">
-                        <div
-                            class="flex items-center justify-between gap-4 rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/85 p-4 shadow-[0_16px_30px_-26px_rgba(15,23,42,0.3)]"
-                        >
-                            <div class="flex items-center gap-4">
-                                <div
-                                    class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--accent-soft)]"
-                                >
-                                    <FileText class="h-5 w-5 text-[var(--accent)]" />
-                                </div>
-                                <div>
-                                    <p class="text-sm font-semibold text-[var(--text)]">
-                                        Download SRT
-                                    </p>
-                                    <p class="text-xs text-muted-foreground">
-                                        SubRip subtitle format
-                                    </p>
-                                </div>
-                            </div>
-                            <a
-                                v-if="srtUrl"
-                                :href="srtUrl"
-                                class="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary-foreground shadow-[0_12px_24px_-18px_rgba(15,23,42,0.35)] transition hover:-translate-y-0.5 hover:bg-primary/90"
-                            >
-                                <FileDown class="h-4 w-4" />
-                                Download
-                            </a>
-                            <span
-                                v-else
-                                class="rounded-full border border-[color:var(--border)]/70 bg-[var(--surface-2)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                            >
-                                Pending
-                            </span>
-                        </div>
-
-                        <div
-                            class="flex items-center justify-between gap-4 rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/85 p-4 shadow-[0_16px_30px_-26px_rgba(15,23,42,0.3)]"
-                        >
-                            <div class="flex items-center gap-4">
-                                <div
-                                    class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--surface-2)]"
-                                >
-                                    <FileText class="h-5 w-5 text-muted-foreground" />
-                                </div>
-                                <div>
-                                    <p class="text-sm font-semibold text-[var(--text)]">
-                                        Download VTT
-                                    </p>
-                                    <p class="text-xs text-muted-foreground">
-                                        WebVTT for players
-                                    </p>
-                                </div>
-                            </div>
-                            <a
-                                v-if="vttUrl"
-                                :href="vttUrl"
-                                class="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary-foreground shadow-[0_12px_24px_-18px_rgba(15,23,42,0.35)] transition hover:-translate-y-0.5 hover:bg-primary/90"
-                            >
-                                <FileDown class="h-4 w-4" />
-                                Download
-                            </a>
-                            <span
-                                v-else
-                                class="rounded-full border border-[color:var(--border)]/70 bg-[var(--surface-2)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                            >
-                                Pending
-                            </span>
-                        </div>
-
-                        <div
-                            class="rounded-2xl border border-dashed border-[color:var(--border)]/70 bg-[var(--surface-2)]/60 px-4 py-4 text-xs text-muted-foreground"
-                        >
-                            Exports remain available while the run is retained.
-                            Download the files locally for backup.
-                        </div>
+                    <div class="mt-4 rounded-2xl border border-dashed border-[color:var(--border)]/70 bg-[var(--surface-2)]/60 px-4 py-4 text-xs text-muted-foreground">
+                        Exports remain available while the run is retained. Download files locally for backup.
                     </div>
                 </div>
 
@@ -837,58 +776,54 @@ onBeforeUnmount(() => {
                         </span>
                     </div>
 
-                    <div class="mt-6 space-y-4">
-                        <div
-                            v-for="step in pipelineSteps"
-                            :key="step.key"
-                            class="flex items-start gap-4"
-                        >
+                    <div class="relative mt-6">
+                        <div class="pointer-events-none absolute left-4 top-2 h-[calc(100%-1rem)] w-px bg-[var(--border)]/70"></div>
+                        <div class="space-y-4">
                             <div
-                                class="flex h-9 w-9 items-center justify-center rounded-full border"
-                                :class="
-                                    step.state === 'complete'
-                                        ? 'border-emerald-400/60 bg-emerald-400/20 text-emerald-500'
-                                        : step.state === 'failed'
-                                          ? 'border-red-400/60 bg-red-400/20 text-red-500'
-                                          : step.state === 'current'
-                                            ? 'border-[color:var(--accent)]/60 bg-[var(--accent-soft)] text-[var(--accent)]'
-                                            : 'border-[color:var(--border)]/70 bg-[var(--surface)] text-muted-foreground'
-                                "
+                                v-for="step in pipelineSteps"
+                                :key="step.key"
+                                class="relative flex items-start gap-4 pl-10"
                             >
-                                <CheckCircle2
-                                    v-if="step.state === 'complete'"
-                                    class="h-4 w-4"
-                                />
-                                <span
-                                    v-else
-                                    class="text-[11px] font-semibold uppercase"
+                                <div
+                                    class="absolute left-4 top-1 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border bg-[var(--surface)] shadow-[0_0_0_3px_var(--surface)]"
+                                    :class="
+                                        step.state === 'complete'
+                                            ? 'border-emerald-400/70 text-emerald-500'
+                                            : step.state === 'failed'
+                                              ? 'border-red-400/70 text-red-500'
+                                              : step.state === 'current'
+                                                ? 'border-[color:var(--accent)]/60 text-[var(--accent)]'
+                                                : 'border-[color:var(--border)]/70 text-muted-foreground'
+                                    "
                                 >
-                                    {{ step.key.slice(0, 2) }}
+                                    <CheckCircle2
+                                        v-if="step.state === 'complete'"
+                                        class="h-4 w-4"
+                                    />
+                                    <span v-else class="text-[10px] font-semibold uppercase">
+                                        {{ step.key.slice(0, 2) }}
+                                    </span>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-semibold text-[var(--text)]">
+                                        {{ step.title }}
+                                    </p>
+                                    <p class="text-xs text-muted-foreground">
+                                        {{ step.description }}
+                                    </p>
+                                </div>
+                                <span class="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                                    {{
+                                        step.state === 'complete'
+                                            ? 'Done'
+                                            : step.state === 'failed'
+                                              ? 'Error'
+                                              : step.state === 'current'
+                                                ? 'Active'
+                                                : 'Queued'
+                                    }}
                                 </span>
                             </div>
-                            <div class="flex-1">
-                                <p
-                                    class="text-sm font-semibold text-[var(--text)]"
-                                >
-                                    {{ step.title }}
-                                </p>
-                                <p class="text-xs text-muted-foreground">
-                                    {{ step.description }}
-                                </p>
-                            </div>
-                            <span
-                                class="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                            >
-                                {{
-                                    step.state === 'complete'
-                                        ? 'Done'
-                                        : step.state === 'failed'
-                                          ? 'Error'
-                                          : step.state === 'current'
-                                            ? 'Active'
-                                            : 'Queued'
-                                }}
-                            </span>
                         </div>
                     </div>
 
