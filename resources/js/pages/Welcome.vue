@@ -17,25 +17,47 @@ withDefaults(
 <template>
     <Head title="Welcome" />
 
-    <div class="min-h-screen bg-[var(--bg)] text-[var(--text)]">
+    <div
+        class="relative min-h-screen overflow-hidden bg-[var(--bg)] text-[var(--text)]"
+    >
+        <div
+            aria-hidden="true"
+            class="pointer-events-none absolute inset-0"
+        >
+            <div
+                class="absolute -left-36 top-[-20%] h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle_at_center,hsl(332_80%_92%/0.75),transparent_70%)] blur-2xl"
+            ></div>
+            <div
+                class="absolute right-[-10%] top-[8%] h-[26rem] w-[26rem] rounded-full bg-[radial-gradient(circle_at_center,hsl(210_80%_92%/0.6),transparent_70%)] blur-2xl"
+            ></div>
+            <div
+                class="absolute bottom-[-25%] left-[15%] h-[30rem] w-[30rem] rounded-full bg-[radial-gradient(circle_at_center,hsl(332_70%_94%/0.6),transparent_70%)] blur-3xl"
+            ></div>
+        </div>
+
         <header
-            class="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6"
+            class="relative mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6 lg:py-8"
         >
             <div class="flex items-center gap-3">
                 <AppLogo />
+                <span
+                    class="rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)]/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground"
+                >
+                    Studio
+                </span>
             </div>
             <nav class="flex items-center gap-2 text-sm font-medium">
                 <Link
                     v-if="$page.props.auth.user"
                     :href="dashboard()"
-                    class="inline-flex items-center rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-4 py-2 text-muted-foreground shadow-[0_10px_24px_-20px_rgba(15,23,42,0.3)] transition hover:text-foreground"
+                    class="inline-flex items-center rounded-full border border-[color:var(--border)]/80 bg-[var(--surface)]/80 px-4 py-2 text-[13px] font-semibold text-muted-foreground shadow-[0_16px_40px_-30px_rgba(15,23,42,0.35)] transition hover:border-[color:var(--accent)]/40 hover:text-[var(--text)]"
                 >
                     Dashboard
                 </Link>
                 <Link
                     v-else
                     :href="login()"
-                    class="inline-flex items-center rounded-full bg-primary px-4 py-2 text-primary-foreground shadow-[0_12px_28px_-18px_rgba(15,23,42,0.35)] transition hover:bg-primary/90"
+                    class="inline-flex items-center rounded-full bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground shadow-[0_18px_45px_-28px_rgba(182,62,117,0.6)] transition hover:-translate-y-0.5 hover:bg-primary/90"
                 >
                     Log in
                 </Link>
@@ -43,125 +65,191 @@ withDefaults(
         </header>
 
         <main
-            class="mx-auto grid w-full max-w-6xl gap-10 px-6 pb-16 pt-6 lg:grid-cols-[1.1fr_0.9fr]"
+            class="relative mx-auto grid w-full max-w-6xl gap-12 px-6 pb-20 pt-4 lg:grid-cols-[1.1fr_0.9fr]"
         >
             <section class="flex flex-col justify-center gap-6">
                 <p
-                    class="text-xs font-semibold uppercase tracking-[0.35em] text-muted-foreground"
+                    class="text-xs font-semibold uppercase tracking-[0.45em] text-muted-foreground motion-safe:animate-transcribe-fade"
+                    style="animation-delay: 0.05s"
                 >
-                    Transcribe
+                    Studio-grade subtitles for Japanese audio
                 </p>
                 <h1
-                    class="text-4xl font-semibold tracking-[-0.02em] lg:text-5xl"
+                    class="text-4xl font-semibold leading-tight tracking-[-0.03em] text-[var(--text)] sm:text-5xl lg:text-6xl"
                 >
-                    Japanese audio to broadcast-ready subtitles.
+                    <span class="font-serif">
+                        The cleanest way to publish
+                    </span>
+                    subtitle-ready translations.
                 </h1>
-                <p class="max-w-prose text-base text-muted-foreground">
-                    Upload an MP4, let the pipeline handle silence-aware
-                    chunking, speech-to-text, translation, and timing. Get
-                    clean SRT or VTT output with consistent cadence.
+                <p
+                    class="max-w-xl text-base text-muted-foreground sm:text-lg motion-safe:animate-transcribe-rise"
+                    style="animation-delay: 0.12s"
+                >
+                    Drop your MP4 and let the pipeline handle the rest: pause
+                    detection, transcription, translation, and timing that keeps
+                    every line readable on screen.
                 </p>
-                <div class="flex flex-wrap gap-3">
-                    <span
-                        class="rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                    >
-                        Direct upload
-                    </span>
-                    <span
-                        class="rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                    >
-                        Silence-aware
-                    </span>
-                    <span
-                        class="rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                    >
-                        JP to EN
-                    </span>
-                </div>
-                <div class="flex flex-wrap gap-3">
+                <div
+                    class="flex flex-wrap items-center gap-3 motion-safe:animate-transcribe-rise"
+                    style="animation-delay: 0.2s"
+                >
                     <Link
                         v-if="$page.props.auth.user"
                         :href="dashboard()"
-                        class="inline-flex items-center rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-[0_14px_32px_-18px_rgba(15,23,42,0.4)] transition hover:bg-primary/90"
+                        class="inline-flex items-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_20px_50px_-28px_rgba(182,62,117,0.65)] transition hover:-translate-y-0.5 hover:bg-primary/90"
                     >
                         Open dashboard
                     </Link>
                     <Link
                         v-else
                         :href="login()"
-                        class="inline-flex items-center rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-[0_14px_32px_-18px_rgba(15,23,42,0.4)] transition hover:bg-primary/90"
+                        class="inline-flex items-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_20px_50px_-28px_rgba(182,62,117,0.65)] transition hover:-translate-y-0.5 hover:bg-primary/90"
                     >
                         Start transcribing
                     </Link>
                     <span
-                        class="inline-flex items-center rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-4 py-2 text-xs font-medium text-muted-foreground"
+                        class="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground"
                     >
-                        Direct-to-storage uploads only
+                        Secure, direct uploads
                     </span>
                 </div>
             </section>
 
             <aside
-                class="flex flex-col gap-6 rounded-3xl border border-[color:var(--border)]/70 bg-[var(--surface)]/80 p-6 shadow-[0_25px_60px_-45px_rgba(15,23,42,0.45)] backdrop-blur"
+                class="relative flex flex-col gap-6 rounded-3xl border border-[color:var(--border)]/70 bg-[var(--surface)]/80 p-6 shadow-[0_30px_70px_-45px_rgba(15,23,42,0.45)] backdrop-blur"
             >
                 <div class="flex items-center justify-between">
                     <p
-                        class="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground"
+                        class="text-xs font-semibold uppercase tracking-[0.35em] text-muted-foreground"
                     >
                         Pipeline
                     </p>
                     <span
-                        class="rounded-full bg-[var(--accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accent)]"
+                        class="rounded-full bg-[var(--accent-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.25em] text-[var(--accent)]"
                     >
                         Live
                     </span>
                 </div>
+
+                <div
+                    class="rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface-2)]/80 p-4"
+                >
+                    <p class="text-sm font-semibold text-[var(--text)]">
+                        Built for broadcast rhythm
+                    </p>
+                    <p class="mt-2 text-xs text-muted-foreground">
+                        Two-line captions, balanced on-screen timing, automatic
+                        readability checks.
+                    </p>
+                    <div class="mt-4 h-1.5 w-full rounded-full bg-white">
+                        <div
+                            class="h-full w-[72%] rounded-full bg-primary shadow-[0_8px_20px_-10px_rgba(182,62,117,0.7)]"
+                        ></div>
+                    </div>
+                </div>
+
                 <div class="space-y-4">
                     <div class="flex items-start gap-3">
                         <span
-                            class="mt-1 h-2 w-2 rounded-full bg-[var(--accent)] shadow-[0_0_12px_rgba(58,130,246,0.5)]"
+                            class="mt-1 h-2.5 w-2.5 rounded-full bg-[var(--accent)] shadow-[0_0_16px_rgba(182,62,117,0.55)]"
                         />
                         <div>
-                            <p class="text-sm font-semibold">
-                                Upload to storage
-                            </p>
+                            <p class="text-sm font-semibold">Upload + verify</p>
                             <p class="text-xs text-muted-foreground">
-                                Presigned MP4 upload with expiring links.
+                                Presigned storage with secure checksums.
                             </p>
                         </div>
                     </div>
                     <div class="flex items-start gap-3">
                         <span
-                            class="mt-1 h-2 w-2 rounded-full bg-[var(--surface-2)]"
+                            class="mt-1 h-2.5 w-2.5 rounded-full bg-[var(--surface-2)]"
                         />
                         <div>
                             <p class="text-sm font-semibold">
-                                Silence detection
+                                Detect pauses
                             </p>
                             <p class="text-xs text-muted-foreground">
-                                Chunked for pacing and readability.
+                                Chunking tuned for subtitle pacing.
                             </p>
                         </div>
                     </div>
                     <div class="flex items-start gap-3">
                         <span
-                            class="mt-1 h-2 w-2 rounded-full bg-[var(--surface-2)]"
+                            class="mt-1 h-2.5 w-2.5 rounded-full bg-[var(--surface-2)]"
                         />
                         <div>
                             <p class="text-sm font-semibold">
-                                Translate + export
+                                Transcribe
                             </p>
                             <p class="text-xs text-muted-foreground">
-                                SRT/VTT with broadcast-safe limits.
+                                Japanese audio to clean text.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span
+                            class="mt-1 h-2.5 w-2.5 rounded-full bg-[var(--surface-2)]"
+                        />
+                        <div>
+                            <p class="text-sm font-semibold">Translate</p>
+                            <p class="text-xs text-muted-foreground">
+                                Natural English with consistent tone.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span
+                            class="mt-1 h-2.5 w-2.5 rounded-full bg-[var(--surface-2)]"
+                        />
+                        <div>
+                            <p class="text-sm font-semibold">Export</p>
+                            <p class="text-xs text-muted-foreground">
+                                Subtitle-ready SRT + VTT delivery.
                             </p>
                         </div>
                     </div>
                 </div>
-                <div
-                    class="rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface-2)] p-4 text-xs text-muted-foreground"
-                >
-                    Tune output with 42 chars per line, 2 lines max, and 1-6s
-                    duration caps.
+
+                <div class="rounded-2xl bg-[var(--surface)]/70 p-4">
+                    <p
+                        class="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground"
+                    >
+                        How it moves
+                    </p>
+                    <div class="mt-4 space-y-3 text-xs text-muted-foreground">
+                        <div class="flex items-center justify-between">
+                            <span>Upload</span>
+                            <span class="font-semibold text-[var(--text)]">
+                                02:05
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span>Transcribe</span>
+                            <span class="font-semibold text-[var(--text)]">
+                                01:18
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span>Translate</span>
+                            <span class="font-semibold text-[var(--text)]">
+                                00:44
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span>Export</span>
+                            <span class="font-semibold text-[var(--text)]">
+                                00:10
+                            </span>
+                        </div>
+                    </div>
+                    <div
+                        class="relative mt-4 h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]"
+                    >
+                        <div
+                            class="absolute inset-y-0 left-0 w-16 animate-transcribe-progress rounded-full bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)]"
+                        ></div>
+                    </div>
                 </div>
             </aside>
         </main>

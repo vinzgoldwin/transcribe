@@ -69,6 +69,7 @@ return [
                 'best_of' => env('WHISPER_CPP_BEST_OF', 7),
                 'beam_size' => env('WHISPER_CPP_BEAM_SIZE', 7),
                 'suppress_nst' => env('WHISPER_CPP_SUPPRESS_NST', true),
+                'no_gpu' => env('WHISPER_CPP_NO_GPU', false),
                 'timeout' => env('WHISPER_CPP_TIMEOUT'),
             ],
         ],

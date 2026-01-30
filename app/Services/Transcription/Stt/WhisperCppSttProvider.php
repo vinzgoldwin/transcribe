@@ -21,6 +21,7 @@ class WhisperCppSttProvider implements SttProvider
         public ?int $bestOf,
         public ?int $beamSize,
         public bool $suppressNonSpeechTokens,
+        public bool $noGpu = false,
     ) {}
 
     public function transcribe(string $audioPath, string $language): array
@@ -43,6 +44,38 @@ class WhisperCppSttProvider implements SttProvider
             throw new InvalidArgumentException("Unsupported whisper.cpp output format [{$this->outputFormat}].");
         }
 
+        $command = $this->buildCommand($audioPath, $language, $format);
+
+        $process = new Process($command);
+        $process->setTimeout($this->timeoutSeconds);
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            throw new ProcessFailedException($process);
+        }
+
+        $output = $this->readOutput($audioPath, $format) ?: trim($process->getOutput());
+
+        if ($output === '') {
+            $error = trim($process->getErrorOutput());
+
+            throw new InvalidArgumentException($error !== '' ? $error : 'whisper.cpp returned no output.');
+        }
+
+        try {
+            return $format === 'json'
+                ? self::parseJson($output)
+                : self::parseSrt($output);
+        } finally {
+            $this->cleanupOutputFiles($audioPath, $format);
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected function buildCommand(string $audioPath, string $language, string $format): array
+    {
         $command = [
             $this->binaryPath,
             '-m',
@@ -75,31 +108,13 @@ class WhisperCppSttProvider implements SttProvider
             $command[] = '-sns';
         }
 
+        if ($this->noGpu) {
+            $command[] = '-ng';
+        }
+
         $command[] = $format === 'json' ? '--output-json' : '--output-srt';
 
-        $process = new Process($command);
-        $process->setTimeout($this->timeoutSeconds);
-        $process->run();
-
-        if (! $process->isSuccessful()) {
-            throw new ProcessFailedException($process);
-        }
-
-        $output = $this->readOutput($audioPath, $format) ?: trim($process->getOutput());
-
-        if ($output === '') {
-            $error = trim($process->getErrorOutput());
-
-            throw new InvalidArgumentException($error !== '' ? $error : 'whisper.cpp returned no output.');
-        }
-
-        try {
-            return $format === 'json'
-                ? self::parseJson($output)
-                : self::parseSrt($output);
-        } finally {
-            $this->cleanupOutputFiles($audioPath, $format);
-        }
+        return $command;
     }
 
     /**

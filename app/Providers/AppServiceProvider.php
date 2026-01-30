@@ -70,6 +70,7 @@ class AppServiceProvider extends ServiceProvider
                         is_numeric($bestOf) ? (int) $bestOf : null,
                         is_numeric($beamSize) ? (int) $beamSize : null,
                         (bool) config('transcribe.providers.stt.whisper_cpp.suppress_nst', true),
+                        (bool) config('transcribe.providers.stt.whisper_cpp.no_gpu', false),
                     );
                 })(),
                 default => throw new InvalidArgumentException("Unsupported STT driver [{$driver}]."),

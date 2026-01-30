@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
+import { ChevronDown } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { useToasts } from '@/composables/useToasts';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { dashboard } from '@/routes';
 import { store as storeTranscription, translate as translateTranscription } from '@/routes/transcriptions';
+import { formatAbsoluteTime, formatRelativeTime } from '@/lib/utils';
 
 interface TranscriptionListItem {
     id: string;
@@ -49,7 +57,31 @@ const statusFilter = ref<
     'all' | 'processing' | 'completed' | 'failed' | 'awaiting-translation'
 >('all');
 const sortBy = ref<'newest' | 'oldest' | 'duration'>('newest');
+const viewMode = ref<'list' | 'timeline'>('list');
+const now = ref(Date.now());
+let timeTicker: number | null = null;
 const { pushToast } = useToasts();
+
+const statusOptions: { value: typeof statusFilter.value; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'processing', label: 'Processing' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'awaiting-translation', label: 'Awaiting translation' },
+    { value: 'failed', label: 'Failed' },
+];
+
+const sortOptions: { value: typeof sortBy.value; label: string }[] = [
+    { value: 'newest', label: 'Newest' },
+    { value: 'oldest', label: 'Oldest' },
+    { value: 'duration', label: 'Longest' },
+];
+
+const statusFilterLabel = computed(
+    () => statusOptions.find((option) => option.value === statusFilter.value)?.label ?? 'All',
+);
+const sortLabel = computed(
+    () => sortOptions.find((option) => option.value === sortBy.value)?.label ?? 'Newest',
+);
 
 // Computed stats
 const stats = computed(() => ({
@@ -132,6 +164,36 @@ const statusBgColor = (status: string) => {
             return 'bg-amber-500';
         case 'awaiting-translation':
             return 'bg-sky-500';
+        default:
+            return 'bg-[var(--border)]';
+    }
+};
+
+const progressPercent = (transcription: TranscriptionListItem) => {
+    if (!transcription.chunks_total) {
+        return 0;
+    }
+
+    return Math.min(
+        100,
+        Math.round(
+            (transcription.chunks_completed / transcription.chunks_total) * 100,
+        ),
+    );
+};
+
+const progressBarColor = (status: string) => {
+    switch (status) {
+        case 'completed':
+            return 'bg-emerald-400';
+        case 'failed':
+            return 'bg-red-400';
+        case 'processing':
+        case 'uploading':
+        case 'uploaded':
+            return 'bg-amber-400';
+        case 'awaiting-translation':
+            return 'bg-sky-400';
         default:
             return 'bg-[var(--border)]';
     }
@@ -401,10 +463,16 @@ const handleKeydown = (event: KeyboardEvent) => {
 
 onMounted(() => {
     window.addEventListener('keydown', handleKeydown);
+    timeTicker = window.setInterval(() => {
+        now.value = Date.now();
+    }, 60000);
 });
 
 onBeforeUnmount(() => {
     window.removeEventListener('keydown', handleKeydown);
+    if (timeTicker) {
+        clearInterval(timeTicker);
+    }
 });
 </script>
 
@@ -416,7 +484,7 @@ onBeforeUnmount(() => {
             <!-- Hero Section with Upload -->
             <section
                 ref="uploadSection"
-                class="animate-transcribe-rise relative overflow-hidden rounded-3xl border border-[color:var(--border)]/70 bg-[var(--surface)]/80 p-6 shadow-[0_30px_70px_-50px_rgba(15,23,42,0.4)] backdrop-blur lg:p-10"
+                class="panel-noise animate-transcribe-rise relative overflow-hidden rounded-3xl border border-[color:var(--border)]/70 bg-[var(--surface)]/80 p-6 shadow-[0_30px_70px_-50px_rgba(15,23,42,0.4)] backdrop-blur lg:p-10"
             >
 
                 <div
@@ -443,46 +511,68 @@ onBeforeUnmount(() => {
                             </p>
                         </div>
 
-                        <div class="flex flex-wrap gap-3">
-                            <span
-                                class="rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)]/80 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                            >
-                                Queue-first
-                            </span>
-                            <span
-                                class="rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)]/80 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                            >
-                                Silence-aware
-                            </span>
-                            <span
-                                class="rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)]/80 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                            >
-                                JP to EN
-                            </span>
-                        </div>
+                        <p
+                            class="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground"
+                        >
+                            Queue-first · Silence-aware · JP → EN
+                        </p>
 
-                        <div class="grid gap-4 lg:grid-cols-2">
+                        <div
+                            class="rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/80 p-5 shadow-[0_16px_36px_-28px_rgba(15,23,42,0.3)]"
+                        >
+                            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                                How it works
+                            </p>
                             <div
-                                class="rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/80 p-5 text-sm text-muted-foreground shadow-[0_16px_36px_-28px_rgba(15,23,42,0.3)]"
+                                class="mt-4 grid gap-3 text-xs font-medium text-[var(--text)] sm:grid-cols-5"
                             >
-                                <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                                    Flow
-                                </p>
-                                <p class="mt-2 text-[var(--text)]">
-                                    Upload -> Silence chunking -> STT -> Translate
-                                    -> Format -> Export
-                                </p>
+                                <div class="flex items-center gap-2">
+                                    <span
+                                        class="h-2.5 w-2.5 rounded-full bg-[var(--surface-2)] animate-transcribe-step"
+                                        style="--step-delay: 0s"
+                                    ></span>
+                                    Upload
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span
+                                        class="h-2.5 w-2.5 rounded-full bg-[var(--surface-2)] animate-transcribe-step"
+                                        style="--step-delay: 1.2s"
+                                    ></span>
+                                    Detect pauses
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span
+                                        class="h-2.5 w-2.5 rounded-full bg-[var(--surface-2)] animate-transcribe-step"
+                                        style="--step-delay: 2.4s"
+                                    ></span>
+                                    Transcribe
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span
+                                        class="h-2.5 w-2.5 rounded-full bg-[var(--surface-2)] animate-transcribe-step"
+                                        style="--step-delay: 3.6s"
+                                    ></span>
+                                    Translate
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span
+                                        class="h-2.5 w-2.5 rounded-full bg-[var(--surface-2)] animate-transcribe-step"
+                                        style="--step-delay: 4.8s"
+                                    ></span>
+                                    Export
+                                </div>
                             </div>
                             <div
-                                class="rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/80 p-5 text-sm text-muted-foreground shadow-[0_16px_36px_-28px_rgba(15,23,42,0.3)]"
+                                class="relative mt-4 h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]"
                             >
-                                <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                                    Constraints
-                                </p>
-                                <p class="mt-2 text-[var(--text)]">
-                                    42 chars/line - 2 lines - 1-6s - 17 chars/s
-                                </p>
+                                <div
+                                    class="absolute inset-y-0 left-0 w-16 animate-transcribe-progress rounded-full bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.6),transparent)]"
+                                ></div>
                             </div>
+                            <p class="mt-3 text-xs text-muted-foreground">
+                                Captions stay readable: 2 lines max, 1-6s on
+                                screen, pacing auto-balanced.
+                            </p>
                         </div>
                     </div>
 
@@ -776,6 +866,26 @@ onBeforeUnmount(() => {
                         >
                             {{ isBulkTranslating ? 'Starting...' : `Translate ${stats.awaitingTranslation} awaiting` }}
                         </button>
+                        <div
+                            class="flex items-center gap-1 rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)]/70 p-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+                        >
+                            <button
+                                type="button"
+                                class="rounded-full px-3 py-2 font-semibold transition"
+                                :class="viewMode === 'list' ? 'bg-[var(--surface)] text-[var(--text)] shadow-[0_8px_16px_-12px_rgba(15,23,42,0.25)]' : ''"
+                                @click="viewMode = 'list'"
+                            >
+                                List
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded-full px-3 py-2 font-semibold transition"
+                                :class="viewMode === 'timeline' ? 'bg-[var(--surface)] text-[var(--text)] shadow-[0_8px_16px_-12px_rgba(15,23,42,0.25)]' : ''"
+                                @click="viewMode = 'timeline'"
+                            >
+                                Timeline
+                            </button>
+                        </div>
                         <span
                             class="text-xs uppercase tracking-[0.3em] text-muted-foreground"
                         >
@@ -785,29 +895,71 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div
-                    class="flex flex-wrap items-center gap-3 rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/70 p-3 text-xs uppercase tracking-[0.2em] text-muted-foreground"
+                    class="flex flex-wrap items-center gap-4 rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/70 p-4 text-xs text-muted-foreground"
                 >
-                    <label class="text-[10px] font-semibold">Status</label>
-                    <select
-                        v-model="statusFilter"
-                        class="h-9 rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-4 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text)]"
-                    >
-                        <option value="all">All</option>
-                        <option value="processing">Processing</option>
-                        <option value="completed">Completed</option>
-                        <option value="awaiting-translation">Awaiting translation</option>
-                        <option value="failed">Failed</option>
-                    </select>
+                    <div class="flex items-center gap-3">
+                        <span class="text-[10px] font-semibold uppercase tracking-[0.25em]">
+                            Status
+                        </span>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger as-child>
+                                <button
+                                    type="button"
+                                    class="inline-flex h-9 items-center gap-2 rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-4 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text)] shadow-[0_10px_20px_-16px_rgba(15,23,42,0.25)] transition hover:border-[color:var(--accent)]/40"
+                                >
+                                    {{ statusFilterLabel }}
+                                    <ChevronDown class="size-4 text-muted-foreground" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                                class="min-w-[200px] rounded-2xl border border-[color:var(--border)]/80 bg-[var(--surface)]/95 p-2 text-[var(--text)] shadow-[0_20px_40px_-28px_rgba(15,23,42,0.4)] backdrop-blur"
+                                align="start"
+                                :side-offset="8"
+                            >
+                                <DropdownMenuItem
+                                    v-for="option in statusOptions"
+                                    :key="option.value"
+                                    class="cursor-pointer rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground focus:bg-[var(--surface-2)] focus:text-[var(--text)]"
+                                    :class="option.value === statusFilter ? 'bg-[var(--surface-2)] text-[var(--text)]' : ''"
+                                    @click="statusFilter = option.value"
+                                >
+                                    {{ option.label }}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
 
-                    <label class="text-[10px] font-semibold">Sort</label>
-                    <select
-                        v-model="sortBy"
-                        class="h-9 rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-4 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text)]"
-                    >
-                        <option value="newest">Newest</option>
-                        <option value="oldest">Oldest</option>
-                        <option value="duration">Longest</option>
-                    </select>
+                    <div class="flex items-center gap-3">
+                        <span class="text-[10px] font-semibold uppercase tracking-[0.25em]">
+                            Sort
+                        </span>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger as-child>
+                                <button
+                                    type="button"
+                                    class="inline-flex h-9 items-center gap-2 rounded-full border border-[color:var(--border)]/70 bg-[var(--surface)] px-4 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text)] shadow-[0_10px_20px_-16px_rgba(15,23,42,0.25)] transition hover:border-[color:var(--accent)]/40"
+                                >
+                                    {{ sortLabel }}
+                                    <ChevronDown class="size-4 text-muted-foreground" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                                class="min-w-[180px] rounded-2xl border border-[color:var(--border)]/80 bg-[var(--surface)]/95 p-2 text-[var(--text)] shadow-[0_20px_40px_-28px_rgba(15,23,42,0.4)] backdrop-blur"
+                                align="start"
+                                :side-offset="8"
+                            >
+                                <DropdownMenuItem
+                                    v-for="option in sortOptions"
+                                    :key="option.value"
+                                    class="cursor-pointer rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground focus:bg-[var(--surface-2)] focus:text-[var(--text)]"
+                                    :class="option.value === sortBy ? 'bg-[var(--surface-2)] text-[var(--text)]' : ''"
+                                    @click="sortBy = option.value"
+                                >
+                                    {{ option.label }}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
 
                     <button
                         v-if="statusFilter !== 'all' || sortBy !== 'newest'"
@@ -866,7 +1018,7 @@ onBeforeUnmount(() => {
                     </div>
                 </div>
 
-                <div v-else class="grid gap-3">
+                <div v-else-if="viewMode === 'list'" class="grid gap-3">
                     <Link
                         v-for="(transcription, index) in filteredTranscriptions"
                         :key="transcription.id"
@@ -874,24 +1026,21 @@ onBeforeUnmount(() => {
                         class="group relative flex items-center gap-4 rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/70 p-5 text-sm text-muted-foreground shadow-[0_18px_35px_-28px_rgba(15,23,42,0.3)] transition-all duration-300 hover:-translate-y-[2px] hover:border-[color:var(--border)] hover:shadow-[0_25px_50px_-20px_rgba(15,23,42,0.35)]"
                         :style="{ animationDelay: `${0.02 * index}s` }"
                     >
-                        <!-- Status indicator dot -->
                         <div
                             class="h-3 w-3 shrink-0 rounded-full"
                             :class="[statusBgColor(transcription.status), statusGlow(transcription.status)]"
                         />
 
-                        <!-- Content -->
                         <div class="min-w-0 flex-1">
-                            <div class="flex items-center justify-between gap-4">
-                                <span class="truncate text-base font-semibold text-[var(--text)]">
-                                    {{ transcription.filename }}
-                                </span>
-                                <span
-                                    class="shrink-0 rounded-full border border-[color:var(--border)]/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em]"
-                                    :class="statusColor(transcription.status)"
-                                >
-                                    {{ formatStatus(transcription.status) }}
-                                </span>
+                            <span class="truncate text-base font-semibold text-[var(--text)]">
+                                {{ transcription.filename }}
+                            </span>
+                            <div class="mt-2 h-0.5 w-full overflow-hidden rounded-full bg-[var(--surface-2)]/80">
+                                <div
+                                    class="h-full rounded-full transition-all"
+                                    :class="progressBarColor(transcription.status)"
+                                    :style="{ width: `${progressPercent(transcription)}%` }"
+                                ></div>
                             </div>
                             <div
                                 class="mt-1 flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.15em] text-muted-foreground"
@@ -907,11 +1056,24 @@ onBeforeUnmount(() => {
                                     {{ transcription.chunks_completed }} /
                                     {{ transcription.chunks_total }} chunks
                                 </span>
-                                <span v-if="transcription.created_at">{{ transcription.created_at }}</span>
+                                <span
+                                    v-if="transcription.created_at"
+                                    :title="formatAbsoluteTime(transcription.created_at)"
+                                >
+                                    {{ formatRelativeTime(transcription.created_at, now.value) }}
+                                </span>
                             </div>
                         </div>
 
-                        <!-- Arrow indicator -->
+                        <div class="flex w-32 justify-center">
+                            <span
+                                class="status-pill"
+                                :class="statusColor(transcription.status)"
+                            >
+                                {{ formatStatus(transcription.status) }}
+                            </span>
+                        </div>
+
                         <svg
                             class="h-5 w-5 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-1"
                             fill="none"
@@ -921,6 +1083,61 @@ onBeforeUnmount(() => {
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                         </svg>
                     </Link>
+                </div>
+                <div v-else class="relative pl-6">
+                    <div class="absolute left-2 top-0 h-full w-px bg-[var(--border)]/70"></div>
+                    <div class="grid gap-6">
+                        <Link
+                            v-for="(transcription, index) in filteredTranscriptions"
+                            :key="transcription.id"
+                            :href="transcription.show_url"
+                            class="group relative flex items-start gap-4"
+                            :style="{ animationDelay: `${0.02 * index}s` }"
+                        >
+                            <div
+                                class="mt-2 h-3 w-3 rounded-full"
+                                :class="[statusBgColor(transcription.status), statusGlow(transcription.status)]"
+                            ></div>
+                            <div
+                                class="flex-1 rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface)]/70 p-5 shadow-[0_16px_30px_-26px_rgba(15,23,42,0.3)] transition hover:-translate-y-[2px]"
+                            >
+                                <div class="flex items-center justify-between gap-4">
+                                    <span class="truncate text-base font-semibold text-[var(--text)]">
+                                        {{ transcription.filename }}
+                                    </span>
+                                    <span class="status-pill" :class="statusColor(transcription.status)">
+                                        {{ formatStatus(transcription.status) }}
+                                    </span>
+                                </div>
+                                <div class="mt-2 h-0.5 w-full overflow-hidden rounded-full bg-[var(--surface-2)]/80">
+                                    <div
+                                        class="h-full rounded-full transition-all"
+                                        :class="progressBarColor(transcription.status)"
+                                        :style="{ width: `${progressPercent(transcription)}%` }"
+                                    ></div>
+                                </div>
+                                <div class="mt-3 flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                                    <span>
+                                        {{
+                                            transcription.duration_seconds
+                                                ? `${transcription.duration_seconds.toFixed(1)}s`
+                                                : 'Pending'
+                                        }}
+                                    </span>
+                                    <span>
+                                        {{ transcription.chunks_completed }} /
+                                        {{ transcription.chunks_total }} chunks
+                                    </span>
+                                    <span
+                                        v-if="transcription.created_at"
+                                        :title="formatAbsoluteTime(transcription.created_at)"
+                                    >
+                                        {{ formatRelativeTime(transcription.created_at, now.value) }}
+                                    </span>
+                                </div>
+                            </div>
+                        </Link>
+                    </div>
                 </div>
             </section>
         </div>
