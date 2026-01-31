@@ -30,6 +30,8 @@ it('stores storage path on creation', function () {
             'content_type' => 'video/mp4',
             'size_bytes' => 1234,
             'stop_after' => 'whisper',
+            'source_language' => 'ja',
+            'subtitle_source' => 'embedded',
         ]);
 
     $response->assertSuccessful();
@@ -39,7 +41,9 @@ it('stores storage path on creation', function () {
 
     expect($transcription)->not->toBeNull()
         ->and($transcription->storage_path)->toBe("transcriptions/{$publicId}/clip.mp4")
-        ->and($transcription->meta['stop_after'])->toBe('whisper');
+        ->and($transcription->meta['stop_after'])->toBe('whisper')
+        ->and($transcription->meta['source_language'])->toBe('ja')
+        ->and($transcription->meta['subtitle_source'])->toBe('embedded');
 });
 
 it('stores azure stop after on creation', function () {
@@ -62,6 +66,30 @@ it('stores azure stop after on creation', function () {
 
     expect($transcription)->not->toBeNull()
         ->and($transcription->meta['stop_after'])->toBe('azure');
+});
+
+it('stores subtitle source defaults when not provided', function () {
+    $user = \App\Models\User::factory()->create();
+    config(['transcribe.storage_prefix' => 'transcriptions']);
+    config(['transcribe.subtitle.default_source' => 'embedded']);
+    config(['transcribe.subtitle.default_source_by_language' => ['zh' => 'ocr']]);
+
+    $response = $this->actingAs($user)
+        ->withoutMiddleware(ValidateSessionWithWorkOS::class)
+        ->postJson(route('transcriptions.store'), [
+            'filename' => 'clip.mp4',
+            'content_type' => 'video/mp4',
+            'size_bytes' => 1234,
+            'source_language' => 'zh',
+        ]);
+
+    $response->assertSuccessful();
+
+    $publicId = $response->json('transcription.id');
+    $transcription = Transcription::query()->where('public_id', $publicId)->first();
+
+    expect($transcription)->not->toBeNull()
+        ->and($transcription->meta['subtitle_source'])->toBe('ocr');
 });
 
 it('builds storage paths using a custom prefix', function () {
@@ -133,6 +161,57 @@ it('skips translation when stop after whisper', function () {
     expect($segment)->not->toBeNull()
         ->and($segment->text_jp)->toBe('こんにちは')
         ->and($segment->text_en)->toBe('こんにちは');
+});
+
+it('uses the selected source language for stt', function () {
+    Storage::fake('local');
+    config(['transcribe.temp_directory' => storage_path('app/testing')]);
+
+    $transcription = Transcription::factory()->create([
+        'storage_disk' => 'local',
+        'status' => TranscriptionStatus::Processing,
+        'chunks_total' => 1,
+        'chunks_completed' => 0,
+        'meta' => ['stop_after' => 'whisper', 'source_language' => 'zh'],
+    ]);
+
+    $chunk = TranscriptionChunk::factory()->for($transcription)->create([
+        'sequence' => 1,
+        'audio_path' => 'transcriptions/'.$transcription->public_id.'/chunk-1.wav',
+        'status' => TranscriptionChunkStatus::Pending,
+        'start_seconds' => 0.0,
+        'end_seconds' => 1.0,
+    ]);
+
+    Storage::disk('local')->put($chunk->audio_path, 'audio');
+
+    $capturedLanguage = null;
+    $sttProvider = new class($capturedLanguage) implements SttProvider
+    {
+        public function __construct(private ?string &$capturedLanguage) {}
+
+        public function transcribe(string $audioPath, string $language): array
+        {
+            $this->capturedLanguage = $language;
+
+            return [
+                ['start' => 0.0, 'end' => 1.0, 'text' => '你好'],
+            ];
+        }
+    };
+
+    $translator = new class implements Translator
+    {
+        public function translate(array $texts, string $sourceLanguage, string $targetLanguage): array
+        {
+            throw new \RuntimeException('Translator should not be called.');
+        }
+    };
+
+    $job = new ProcessTranscriptionChunkJob($chunk->id);
+    $job->handle($sttProvider, $translator, app(SubtitleFormatter::class));
+
+    expect($capturedLanguage)->toBe('zh');
 });
 
 it('sanitizes invalid utf8 in stt payload before storing', function () {
@@ -259,20 +338,27 @@ it('translates segments after awaiting translation', function () {
         ->create();
 
     $capturedTexts = [];
-    $translator = new class($capturedTexts) implements Translator
+    $capturedSource = null;
+    $translator = new class($capturedTexts, $capturedSource) implements Translator
     {
-        public function __construct(private array &$capturedTexts) {}
+        public function __construct(private array &$capturedTexts, private ?string &$capturedSource) {}
 
         public function translate(array $texts, string $sourceLanguage, string $targetLanguage): array
         {
             $this->capturedTexts = $texts;
+            $this->capturedSource = $sourceLanguage;
 
             return ['Hello', 'World'];
         }
     };
 
     $job = new TranslateTranscriptionJob($transcription->id);
-    $job->handle($translator, app(SubtitleFormatter::class), app(SrtVttBuilder::class));
+    $job->handle(
+        $translator,
+        app(SubtitleFormatter::class),
+        app(SrtVttBuilder::class),
+        app(OverlapDeduplicator::class),
+    );
 
     $transcription->refresh();
     $outputPrefix = "transcriptions/{$transcription->public_id}/output";
@@ -282,6 +368,7 @@ it('translates segments after awaiting translation', function () {
         ->get();
 
     expect($capturedTexts)->toBe(['こんにちは', '世界'])
+        ->and($capturedSource)->toBe('ja')
         ->and($transcription->status)->toBe(TranscriptionStatus::Completed)
         ->and($transcription->srt_path)->toBe("{$outputPrefix}/sample-video_en.srt")
         ->and($transcription->vtt_path)->toBe("{$outputPrefix}/sample-video_en.vtt")

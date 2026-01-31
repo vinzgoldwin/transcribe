@@ -35,6 +35,9 @@ interface TranscriptionDetails {
     vtt_ready: boolean;
     download_srt_url: string | null;
     download_vtt_url: string | null;
+    subtitle_source?: string | null;
+    source_language?: string | null;
+    subtitle_progress_percent?: number | null;
 }
 
 const props = defineProps<{
@@ -119,8 +122,22 @@ const isTerminalStatus = computed(() =>
     ['completed', 'failed'].includes(transcription.value.status),
 );
 
+const subtitleProgressPercent = computed(() => {
+    const value = transcription.value.subtitle_progress_percent;
+
+    if (typeof value !== 'number' || Number.isNaN(value)) {
+        return null;
+    }
+
+    return Math.min(100, Math.max(0, Math.round(value)));
+});
+
 const progressPercent = computed(() => {
     if (!transcription.value.chunks_total) {
+        if (subtitleProgressPercent.value !== null) {
+            return subtitleProgressPercent.value;
+        }
+
         return transcription.value.status === 'completed' ? 100 : 0;
     }
 
@@ -134,8 +151,57 @@ const progressPercent = computed(() => {
     );
 });
 
+const subtitleSourceLabel = computed(() => {
+    switch (transcription.value.subtitle_source) {
+        case 'ocr':
+            return 'OCR';
+        case 'embedded':
+            return 'Embedded';
+        case 'auto':
+            return 'Auto';
+        case 'audio':
+            return 'Audio';
+        default:
+            return null;
+    }
+});
+
+const isSubtitleFlow = computed(() => {
+    const source = transcription.value.subtitle_source;
+
+    if (!source) {
+        return false;
+    }
+
+    return ['ocr', 'embedded', 'auto'].includes(source);
+});
+
 const chunkSummary = computed(() => {
     if (!transcription.value.chunks_total) {
+        if (isSubtitleFlow.value) {
+            const label = subtitleSourceLabel.value ? ` (${subtitleSourceLabel.value})` : '';
+
+            if (transcription.value.status === 'completed') {
+                return `Subtitle extraction${label} complete`;
+            }
+
+            if (transcription.value.status === 'failed') {
+                return `Subtitle extraction${label} failed`;
+            }
+
+            if (transcription.value.status === 'awaiting-translation') {
+                return `Subtitle extraction${label} complete`;
+            }
+
+            const progressSuffix =
+                transcription.value.status === 'processing' &&
+                subtitleProgressPercent.value !== null
+                    ? ` (${subtitleProgressPercent.value}%)`
+                    : '';
+
+            return `Subtitle extraction${label} running${progressSuffix}`;
+        }
+
         return 'Chunking scheduled';
     }
 
@@ -207,6 +273,16 @@ const pipelineSteps = computed(() => {
         currentIndex = chunksDone ? 2 : 1;
     }
 
+    const subtitleLabel = subtitleSourceLabel.value
+        ? `${subtitleSourceLabel.value} source`
+        : 'Subtitle source';
+    const chunkTitle = isSubtitleFlow.value ? 'Subtitle extraction' : 'Silence detection';
+    const chunkDescription = isSubtitleFlow.value ? subtitleLabel : 'Segmenting audio';
+    const transcribeTitle = isSubtitleFlow.value ? 'Subtitle text' : 'Transcription';
+    const transcribeDescription = isSubtitleFlow.value
+        ? 'Source captions ready'
+        : 'Japanese/Chinese to text';
+
     const steps = [
         {
             key: 'upload',
@@ -215,13 +291,13 @@ const pipelineSteps = computed(() => {
         },
         {
             key: 'chunk',
-            title: 'Silence detection',
-            description: 'Segmenting audio',
+            title: chunkTitle,
+            description: chunkDescription,
         },
         {
             key: 'transcribe',
-            title: 'Transcription',
-            description: 'Japanese to text',
+            title: transcribeTitle,
+            description: transcribeDescription,
         },
         {
             key: 'translate',
@@ -410,7 +486,7 @@ const stageMessage = computed(() => {
     }
 
     if (transcription.value.status === 'awaiting-translation') {
-        return 'Japanese transcript ready. Start translation to generate EN subs.';
+        return 'Source transcript ready. Start translation to generate EN subs.';
     }
 
     if (transcription.value.status === 'failed') {

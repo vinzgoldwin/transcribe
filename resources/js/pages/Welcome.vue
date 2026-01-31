@@ -72,7 +72,7 @@ withDefaults(
                     class="text-xs font-semibold uppercase tracking-[0.45em] text-muted-foreground motion-safe:animate-transcribe-fade"
                     style="animation-delay: 0.05s"
                 >
-                    Studio-grade subtitles for Japanese audio
+                    Studio-grade subtitles for Japanese + Chinese audio
                 </p>
                 <h1
                     class="text-4xl font-semibold leading-tight tracking-[-0.03em] text-[var(--text)] sm:text-5xl lg:text-6xl"
@@ -183,7 +183,7 @@ withDefaults(
                                 Transcribe
                             </p>
                             <p class="text-xs text-muted-foreground">
-                                Japanese audio to clean text.
+                                Japanese or Chinese audio to clean text.
                             </p>
                         </div>
                     </div>

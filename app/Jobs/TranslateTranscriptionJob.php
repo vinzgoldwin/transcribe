@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Enums\TranscriptionStatus;
 use App\Models\Transcription;
 use App\Models\TranscriptionSegment;
+use App\Services\Transcription\OverlapDeduplicator;
 use App\Services\Transcription\SrtVttBuilder;
 use App\Services\Transcription\SubtitleFormatter;
 use App\Services\Transcription\Translation\Translator;
@@ -45,8 +46,12 @@ class TranslateTranscriptionJob implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(Translator $translator, SubtitleFormatter $formatter, SrtVttBuilder $builder): void
-    {
+    public function handle(
+        Translator $translator,
+        SubtitleFormatter $formatter,
+        SrtVttBuilder $builder,
+        OverlapDeduplicator $deduplicator,
+    ): void {
         $transcription = Transcription::query()->findOrFail($this->transcriptionId);
 
         if (! in_array($transcription->status, [TranscriptionStatus::AwaitingTranslation, TranscriptionStatus::Processing], true)) {
@@ -62,6 +67,9 @@ class TranslateTranscriptionJob implements ShouldQueue
             ->orderBy('sequence')
             ->get();
 
+        $rawSourceLanguage = $this->resolveSourceLanguage($transcription);
+        $segments = $this->filterSegments($segments, $rawSourceLanguage, $transcription);
+
         if ($segments->isEmpty()) {
             $transcription->update([
                 'status' => TranscriptionStatus::Failed,
@@ -72,6 +80,8 @@ class TranslateTranscriptionJob implements ShouldQueue
         }
 
         $exportSegments = [];
+        $sourceLanguage = $this->resolveTranslationSourceLanguage($transcription);
+        $targetLanguage = $this->resolveTranslationTargetLanguage();
 
         $batchSize = (int) config('transcribe.translation.batch_size', $this->batchSize);
         $throttleMs = (int) config('transcribe.translation.throttle_ms', 300);
@@ -83,11 +93,11 @@ class TranslateTranscriptionJob implements ShouldQueue
 
             $translations = $translator->translate(
                 $segmentChunk->pluck('text_jp')->all(),
-                'JA',
-                'EN',
+                $sourceLanguage,
+                $targetLanguage,
             );
 
-            $segmentChunk->values()->each(function (TranscriptionSegment $segment, int $index) use ($formatter, $translations, &$exportSegments): void {
+            $segmentChunk->values()->each(function (TranscriptionSegment $segment, int $index) use ($formatter, $translations): void {
                 $translatedText = trim((string) ($translations[$index] ?? ''));
                 $textEn = $translatedText !== '' ? $translatedText : (string) $segment->text_en;
                 $formattedText = $translatedText !== ''
@@ -98,13 +108,42 @@ class TranslateTranscriptionJob implements ShouldQueue
                     'text_en' => $textEn,
                     'formatted_text' => $formattedText,
                 ]);
-
-                $exportSegments[] = [
-                    'start' => $segment->start_seconds,
-                    'end' => $segment->end_seconds,
-                    'text' => $formattedText,
-                ];
             });
+        }
+
+        $segmentsCollection = $transcription->segments()
+            ->orderBy('start_seconds')
+            ->get()
+            ->map(fn (TranscriptionSegment $segment) => [
+                'id' => $segment->id,
+                'start_seconds' => $segment->start_seconds,
+                'end_seconds' => $segment->end_seconds,
+                'text_en' => $segment->text_en,
+                'text_jp' => $segment->text_jp,
+                'formatted_text' => $segment->formatted_text,
+            ]);
+
+        $deduped = $deduplicator->dedupe($segmentsCollection, (float) config('transcribe.subtitle.gap_seconds'));
+        $sequence = 1;
+        $exportSegments = [];
+
+        foreach ($deduped as $segment) {
+            TranscriptionSegment::query()
+                ->whereKey($segment['id'])
+                ->update([
+                    'sequence' => $sequence,
+                    'start_seconds' => $segment['start_seconds'],
+                    'end_seconds' => $segment['end_seconds'],
+                    'formatted_text' => $segment['formatted_text'],
+                ]);
+
+            $exportSegments[] = [
+                'start' => $segment['start_seconds'],
+                'end' => $segment['end_seconds'],
+                'text' => $segment['formatted_text'],
+            ];
+
+            $sequence++;
         }
 
         $disk = Storage::disk($transcription->storage_disk);
@@ -139,6 +178,113 @@ class TranslateTranscriptionJob implements ShouldQueue
         }
 
         return str_replace(['..', '/', '\\'], '-', $baseName);
+    }
+
+    protected function resolveSourceLanguage(?Transcription $transcription): string
+    {
+        $language = (string) ($transcription?->meta['source_language'] ?? config('transcribe.language.default', 'ja'));
+        $language = strtolower(trim($language));
+        $supported = array_keys((array) config('transcribe.language.supported', []));
+
+        if ($language !== '' && in_array($language, $supported, true)) {
+            return $language;
+        }
+
+        return in_array('ja', $supported, true) ? 'ja' : ($supported[0] ?? 'ja');
+    }
+
+    protected function resolveTranslationSourceLanguage(Transcription $transcription): string
+    {
+        $language = $this->resolveSourceLanguage($transcription);
+        $supported = (array) config('transcribe.language.supported', []);
+        $driver = (string) config('transcribe.providers.translation.driver', 'azure');
+        $translationMap = $supported[$language]['translation'] ?? [];
+
+        return (string) ($translationMap[$driver] ?? $translationMap['default'] ?? $language);
+    }
+
+    protected function resolveTranslationTargetLanguage(): string
+    {
+        return 'EN';
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, TranscriptionSegment>  $segments
+     * @return \Illuminate\Support\Collection<int, TranscriptionSegment>
+     */
+    protected function filterSegments($segments, string $sourceLanguage, Transcription $transcription)
+    {
+        if ($sourceLanguage !== 'zh') {
+            return $segments;
+        }
+
+        $subtitleSource = $transcription->meta['subtitle_source'] ?? null;
+        $minDuration = $subtitleSource === 'ocr'
+            ? (float) config('transcribe.ocr.min_segment_seconds', 0.9)
+            : null;
+
+        $keep = $segments->filter(function (TranscriptionSegment $segment) use ($minDuration): bool {
+            if ($minDuration !== null) {
+                $duration = (float) $segment->end_seconds - (float) $segment->start_seconds;
+
+                if ($duration < $minDuration) {
+                    return false;
+                }
+            }
+
+            return $this->isLikelyChineseSubtitle((string) $segment->text_jp);
+        })->values();
+
+        if ($keep->count() === $segments->count()) {
+            return $segments;
+        }
+
+        $keepIds = $keep->pluck('id')->all();
+
+        if ($keepIds !== []) {
+            $transcription->segments()
+                ->whereNotIn('id', $keepIds)
+                ->delete();
+        } else {
+            $transcription->segments()->delete();
+        }
+
+        return $keep;
+    }
+
+    protected function isLikelyChineseSubtitle(string $text): bool
+    {
+        $text = trim($text);
+
+        if ($text === '') {
+            return false;
+        }
+
+        $hanCount = preg_match_all('/\p{Han}/u', $text) ?: 0;
+        $latinCount = preg_match_all('/[A-Za-z]/u', $text) ?: 0;
+        $digitCount = preg_match_all('/\d/u', $text) ?: 0;
+        $total = $hanCount + $latinCount + $digitCount;
+
+        if ($total === 0 || $hanCount === 0) {
+            return false;
+        }
+
+        $hanRatio = $hanCount / $total;
+        $latinRatio = ($latinCount + $digitCount) / $total;
+
+        if ($total <= 2) {
+            return $hanRatio >= 0.5 && $latinRatio <= 0.2;
+        }
+
+        if ($hanRatio < 0.6) {
+            return false;
+        }
+
+        if ($latinRatio > 0.2 && $hanRatio < 0.8) {
+            return false;
+        }
+
+        return true;
     }
 
     public function failed(Throwable $exception): void

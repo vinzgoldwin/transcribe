@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ChevronDown } from 'lucide-vue-next';
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { useToasts } from '@/composables/useToasts';
 import {
@@ -32,6 +32,10 @@ const props = defineProps<{
         expires_minutes: number;
         storage_disk: string;
         default_stop_after: string;
+        default_source_language: string;
+        source_languages: { value: string; label: string }[];
+        default_subtitle_source: string;
+        subtitle_source_by_language: Record<string, string>;
     };
 }>();
 
@@ -49,6 +53,13 @@ const isDragging = ref(false);
 const stopAfter = ref<'whisper' | 'azure'>(
     props.upload.default_stop_after === 'whisper' ? 'whisper' : 'azure',
 );
+const sourceLanguage = ref<string>(
+    props.upload.default_source_language || 'ja',
+);
+const subtitleSource = ref<string>(
+    props.upload.default_subtitle_source || 'embedded',
+);
+const subtitleSourceTouched = ref(false);
 const stage = ref<'idle' | 'presigning' | 'uploading' | 'finalizing' | 'done'>(
     'idle',
 );
@@ -82,6 +93,12 @@ const statusFilterLabel = computed(
 const sortLabel = computed(
     () => sortOptions.find((option) => option.value === sortBy.value)?.label ?? 'Newest',
 );
+const sourceLanguageLabel = computed(
+    () =>
+        props.upload.source_languages.find(
+            (option) => option.value === sourceLanguage.value,
+        )?.label ?? 'Source',
+);
 
 // Computed stats
 const stats = computed(() => ({
@@ -112,9 +129,19 @@ const statusLabel = computed(() => {
         case 'done':
             return 'Queued. Redirecting...';
         default:
-            return 'Drop a video with Japanese audio.';
+            return `Drop a video with ${sourceLanguageLabel.value} audio.`;
     }
 });
+
+const resolveDefaultSubtitleSource = (language: string) => {
+    const perLanguage = props.upload.subtitle_source_by_language || {};
+    return perLanguage[language] || props.upload.default_subtitle_source || 'embedded';
+};
+
+const setSubtitleSource = (value: string) => {
+    subtitleSourceTouched.value = true;
+    subtitleSource.value = value;
+};
 
 const formatStatus = (status: string) => {
     switch (status) {
@@ -311,6 +338,8 @@ const startUpload = async () => {
                 content_type: selectedFile.value.type || 'video/mp4',
                 size_bytes: selectedFile.value.size,
                 stop_after: stopAfter.value,
+                source_language: sourceLanguage.value,
+                subtitle_source: subtitleSource.value,
             }),
         });
 
@@ -461,6 +490,12 @@ const handleKeydown = (event: KeyboardEvent) => {
     }
 };
 
+watch(sourceLanguage, (value) => {
+    if (!subtitleSourceTouched.value) {
+        subtitleSource.value = resolveDefaultSubtitleSource(value);
+    }
+});
+
 onMounted(() => {
     window.addEventListener('keydown', handleKeydown);
     timeTicker = window.setInterval(() => {
@@ -500,7 +535,7 @@ onBeforeUnmount(() => {
                             <h1
                                 class="max-w-xl text-3xl font-semibold tracking-[-0.02em] text-[var(--text)] sm:text-4xl lg:text-5xl"
                             >
-                                Japanese audio in. Subtitle-ready English out.
+                                Japanese or Chinese audio in. Subtitle-ready English out.
                             </h1>
                             <p
                                 class="max-w-lg text-sm text-muted-foreground sm:text-base"
@@ -514,7 +549,7 @@ onBeforeUnmount(() => {
                         <p
                             class="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground"
                         >
-                            Queue-first · Silence-aware · JP → EN
+                            Queue-first · Silence-aware · JP/CH → EN
                         </p>
 
                         <div class="flex flex-col gap-3">
@@ -683,6 +718,100 @@ onBeforeUnmount(() => {
                             <span
                                 class="text-[11px] uppercase tracking-[0.3em] text-muted-foreground"
                             >
+                                Source language
+                            </span>
+                            <div
+                                class="inline-flex w-full flex-wrap gap-1 rounded-full border border-[color:var(--border)]/70 bg-[var(--surface-2)] p-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
+                            >
+                                <button
+                                    v-for="option in props.upload.source_languages"
+                                    :key="option.value"
+                                    type="button"
+                                    class="flex-1 rounded-full px-3 py-2 transition"
+                                    :class="
+                                        sourceLanguage === option.value
+                                            ? 'bg-[var(--surface)] text-[var(--text)] shadow-[0_10px_20px_-14px_rgba(15,23,42,0.3)]'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    "
+                                    @click="sourceLanguage = option.value"
+                                >
+                                    {{ option.label }}
+                                </button>
+                            </div>
+                            <p class="text-xs text-muted-foreground">
+                                Guides speech-to-text and translation.
+                            </p>
+                        </div>
+
+                        <div class="flex flex-col gap-2">
+                            <span
+                                class="text-[11px] uppercase tracking-[0.3em] text-muted-foreground"
+                            >
+                                Subtitle source
+                            </span>
+                            <div
+                                class="inline-flex w-full flex-wrap gap-1 rounded-2xl border border-[color:var(--border)]/70 bg-[var(--surface-2)] p-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
+                            >
+                                <button
+                                    type="button"
+                                    class="flex-1 rounded-full px-3 py-2 transition"
+                                    :class="
+                                        subtitleSource === 'ocr'
+                                            ? 'bg-[var(--surface)] text-[var(--text)] shadow-[0_10px_20px_-14px_rgba(15,23,42,0.3)]'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    "
+                                    @click="setSubtitleSource('ocr')"
+                                >
+                                    Burned-in (OCR)
+                                </button>
+                                <button
+                                    type="button"
+                                    class="flex-1 rounded-full px-3 py-2 transition"
+                                    :class="
+                                        subtitleSource === 'embedded'
+                                            ? 'bg-[var(--surface)] text-[var(--text)] shadow-[0_10px_20px_-14px_rgba(15,23,42,0.3)]'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    "
+                                    @click="setSubtitleSource('embedded')"
+                                >
+                                    Embedded track
+                                </button>
+                                <button
+                                    type="button"
+                                    class="flex-1 rounded-full px-3 py-2 transition"
+                                    :class="
+                                        subtitleSource === 'auto'
+                                            ? 'bg-[var(--surface)] text-[var(--text)] shadow-[0_10px_20px_-14px_rgba(15,23,42,0.3)]'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    "
+                                    @click="setSubtitleSource('auto')"
+                                >
+                                    Auto
+                                </button>
+                                <button
+                                    type="button"
+                                    class="flex-1 rounded-full px-3 py-2 transition"
+                                    :class="
+                                        subtitleSource === 'audio'
+                                            ? 'bg-[var(--surface)] text-[var(--text)] shadow-[0_10px_20px_-14px_rgba(15,23,42,0.3)]'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    "
+                                    @click="setSubtitleSource('audio')"
+                                >
+                                    Audio only
+                                </button>
+                            </div>
+                            <p class="text-xs text-muted-foreground">
+                                OCR is best for burned-in text. Auto tries OCR,
+                                then embedded, then audio. Explicit choices do
+                                not fall back.
+                            </p>
+                        </div>
+
+                        <div class="flex flex-col gap-2">
+                            <span
+                                class="text-[11px] uppercase tracking-[0.3em] text-muted-foreground"
+                            >
                                 Stop after
                             </span>
                             <div
@@ -698,7 +827,7 @@ onBeforeUnmount(() => {
                                     "
                                     @click="stopAfter = 'azure'"
                                 >
-                                    Azure (EN)
+                                    Translate (EN)
                                 </button>
                                 <button
                                     type="button"
@@ -710,13 +839,13 @@ onBeforeUnmount(() => {
                                     "
                                     @click="stopAfter = 'whisper'"
                                 >
-                                    Whisper (JP)
+                                    Source only
                                 </button>
                             </div>
                             <p
                                 class="text-xs text-muted-foreground"
                             >
-                                Whisper stops with a JP SRT for manual
+                                Stops with a source-language SRT for manual
                                 translation.
                             </p>
                         </div>

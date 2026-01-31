@@ -76,13 +76,14 @@ class ProcessTranscriptionChunkJob implements ShouldQueue
         try {
             $this->streamToLocal($disk, $chunk->audio_path, $localPath);
 
-            $sttSegments = $this->sanitizePayload($sttProvider->transcribe($localPath, 'ja'));
+            $sttLanguage = $this->resolveSttLanguage($transcription);
+            $sttSegments = $this->sanitizePayload($sttProvider->transcribe($localPath, $sttLanguage));
             $chunk->stt_payload = $sttSegments;
 
             $stopAfter = $this->resolveStopAfter($transcription);
             $translatedSegments = $stopAfter === 'whisper'
                 ? $this->buildWhisperOnlySegments($sttSegments)
-                : $this->buildTranslatedSegments($sttSegments, $translator);
+                : $this->buildTranslatedSegments($sttSegments, $translator, $transcription);
             $translatedSegments = $this->sanitizePayload($translatedSegments);
 
             $formattedSegments = $formatter->format(
@@ -95,6 +96,7 @@ class ProcessTranscriptionChunkJob implements ShouldQueue
                     ])
                     ->all(),
             );
+            $formattedSegments = $this->sanitizePayload($formattedSegments);
 
             TranscriptionSegment::query()
                 ->where('transcription_chunk_id', $chunk->id)
@@ -198,10 +200,12 @@ class ProcessTranscriptionChunkJob implements ShouldQueue
      * @param  array<int, array{start: float, end: float, text: string}>  $sttSegments
      * @return array<int, array{start: float, end: float, text: string, text_jp: string}>
      */
-    protected function buildTranslatedSegments(array $sttSegments, Translator $translator): array
+    protected function buildTranslatedSegments(array $sttSegments, Translator $translator, \App\Models\Transcription $transcription): array
     {
-        $jpTexts = collect($sttSegments)->pluck('text')->all();
-        $translations = $translator->translate($jpTexts, 'JA', 'EN');
+        $sourceTexts = collect($sttSegments)->pluck('text')->all();
+        $sourceLanguage = $this->resolveTranslationSourceLanguage($transcription);
+        $targetLanguage = $this->resolveTranslationTargetLanguage();
+        $translations = $translator->translate($sourceTexts, $sourceLanguage, $targetLanguage);
 
         return collect($sttSegments)
             ->values()
@@ -228,6 +232,42 @@ class ProcessTranscriptionChunkJob implements ShouldQueue
         }
 
         return in_array($normalized, ['azure', 'deepl'], true) ? 'azure' : 'whisper';
+    }
+
+    protected function resolveSourceLanguage(?\App\Models\Transcription $transcription): string
+    {
+        $language = (string) ($transcription?->meta['source_language'] ?? config('transcribe.language.default', 'ja'));
+        $language = strtolower(trim($language));
+        $supported = array_keys((array) config('transcribe.language.supported', []));
+
+        if ($language !== '' && in_array($language, $supported, true)) {
+            return $language;
+        }
+
+        return in_array('ja', $supported, true) ? 'ja' : ($supported[0] ?? 'ja');
+    }
+
+    protected function resolveSttLanguage(\App\Models\Transcription $transcription): string
+    {
+        $language = $this->resolveSourceLanguage($transcription);
+        $supported = (array) config('transcribe.language.supported', []);
+
+        return (string) ($supported[$language]['stt'] ?? $language);
+    }
+
+    protected function resolveTranslationSourceLanguage(\App\Models\Transcription $transcription): string
+    {
+        $language = $this->resolveSourceLanguage($transcription);
+        $supported = (array) config('transcribe.language.supported', []);
+        $driver = (string) config('transcribe.providers.translation.driver', 'azure');
+        $translationMap = $supported[$language]['translation'] ?? [];
+
+        return (string) ($translationMap[$driver] ?? $translationMap['default'] ?? $language);
+    }
+
+    protected function resolveTranslationTargetLanguage(): string
+    {
+        return 'EN';
     }
 
     protected function sanitizePayload(mixed $payload): mixed

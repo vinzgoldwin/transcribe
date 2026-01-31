@@ -3,11 +3,13 @@
 namespace App\Providers;
 
 use App\Services\Transcription\MediaProcessor;
+use App\Services\Transcription\OcrSubtitleExtractor;
 use App\Services\Transcription\OverlapDeduplicator;
 use App\Services\Transcription\SrtVttBuilder;
 use App\Services\Transcription\Stt\SttProvider;
 use App\Services\Transcription\Stt\WhisperCppSttProvider;
 use App\Services\Transcription\Stt\WhisperSttProvider;
+use App\Services\Transcription\SubtitleExtractor;
 use App\Services\Transcription\SubtitleFormatter;
 use App\Services\Transcription\Translation\AzureTranslator;
 use App\Services\Transcription\Translation\DeepLTranslator;
@@ -31,6 +33,40 @@ class AppServiceProvider extends ServiceProvider
                 config('transcribe.ffmpeg_path'),
                 config('transcribe.ffprobe_path'),
                 (int) config('transcribe.process_timeout_seconds', 1200),
+            );
+        });
+
+        $this->app->singleton(SubtitleExtractor::class, function (): SubtitleExtractor {
+            return new SubtitleExtractor(
+                config('transcribe.ffmpeg_path'),
+                config('transcribe.ffprobe_path'),
+                (int) config('transcribe.process_timeout_seconds', 1200),
+            );
+        });
+
+        $this->app->singleton(OcrSubtitleExtractor::class, function (): OcrSubtitleExtractor {
+            return new OcrSubtitleExtractor(
+                (string) config('transcribe.ffmpeg_path'),
+                (string) config('transcribe.ocr.binary', 'tesseract'),
+                (int) config('transcribe.process_timeout_seconds', 1200),
+                (string) config('transcribe.ocr.language', 'chi_sim'),
+                (int) config('transcribe.ocr.psm', 7),
+                (int) config('transcribe.ocr.oem', 1),
+                (float) config('transcribe.ocr.fps', 2),
+                (int) config('transcribe.ocr.scale', 2),
+                (int) config('transcribe.ocr.min_chars', 1),
+                (int) config('transcribe.ocr.min_confidence', 35),
+                (float) config('transcribe.ocr.crop.width_ratio', 0.8),
+                (float) config('transcribe.ocr.crop.height_ratio', 0.2),
+                (float) config('transcribe.ocr.crop.bottom_padding_ratio', 0.03),
+                (string) config('transcribe.ocr.filters', ''),
+                (int) config('transcribe.ocr.log_every', 25),
+                (int) config('transcribe.ocr.min_line_confidence', 55),
+                (float) config('transcribe.ocr.min_line_height_ratio', 0.7),
+                (float) config('transcribe.ocr.similarity_threshold', 90),
+                (float) config('transcribe.ocr.min_line_bottom_ratio', 0.55),
+                (float) config('transcribe.ocr.min_segment_seconds', 0.9),
+                (float) config('transcribe.ocr.max_blank_seconds', 0.75),
             );
         });
 

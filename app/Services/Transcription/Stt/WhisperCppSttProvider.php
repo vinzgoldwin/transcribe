@@ -2,6 +2,7 @@
 
 namespace App\Services\Transcription\Stt;
 
+use App\Services\Transcription\SubtitleParser;
 use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
 use Symfony\Component\Process\Exception\ProcessFailedException;
@@ -122,54 +123,7 @@ class WhisperCppSttProvider implements SttProvider
      */
     public static function parseSrt(string $srt): array
     {
-        $blocks = preg_split('/\R{2,}/', trim($srt)) ?: [];
-        $segments = [];
-
-        foreach ($blocks as $block) {
-            $lines = preg_split('/\R/', trim($block)) ?: [];
-
-            if ($lines === []) {
-                continue;
-            }
-
-            $timeLineIndex = null;
-
-            foreach ($lines as $index => $line) {
-                if (str_contains($line, '-->')) {
-                    $timeLineIndex = $index;
-                    break;
-                }
-            }
-
-            if ($timeLineIndex === null) {
-                continue;
-            }
-
-            $timeLine = $lines[$timeLineIndex] ?? '';
-
-            if (! preg_match(
-                '/(\d{2}:\d{2}:\d{2}[,\.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,\.]\d{3})/',
-                $timeLine,
-                $matches,
-            )) {
-                continue;
-            }
-
-            $textLines = array_slice($lines, $timeLineIndex + 1);
-            $text = self::sanitizeText(strip_tags(implode(' ', $textLines)));
-
-            if ($text === '') {
-                continue;
-            }
-
-            $segments[] = [
-                'start' => self::srtTimestampToSeconds($matches[1]),
-                'end' => self::srtTimestampToSeconds($matches[2]),
-                'text' => $text,
-            ];
-        }
-
-        return $segments;
+        return SubtitleParser::parseSrt($srt);
     }
 
     /**
@@ -193,14 +147,6 @@ class WhisperCppSttProvider implements SttProvider
             ->filter(fn (array $segment) => $segment['text'] !== '')
             ->values()
             ->all();
-    }
-
-    protected static function srtTimestampToSeconds(string $timestamp): float
-    {
-        $timestamp = str_replace(',', '.', $timestamp);
-        [$hours, $minutes, $seconds] = explode(':', $timestamp);
-
-        return ((int) $hours * 3600) + ((int) $minutes * 60) + (float) $seconds;
     }
 
     protected function readOutput(string $audioPath, string $format): string

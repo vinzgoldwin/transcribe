@@ -1,103 +1,157 @@
 # Transcribe
 
-Transcribe is a Laravel 12 + Inertia app for creating Japanese to English subtitle files from MP4 uploads. Uploads go directly to S3-compatible storage, then queued jobs extract audio, detect silences, chunk the audio, transcribe, translate, format subtitles, and export SRT/VTT.
+Transcribe is a Laravel 12 + Inertia app that turns MP4 videos into English SRT/VTT subtitles.
+It supports Japanese and Simplified Chinese, and can read subtitles from:
+- Burned-in text (OCR)
+- Embedded subtitle tracks
+- Audio transcription (Whisper)
 
-## Core flow
+## What this app does
 
-1. Client uploads MP4 via presigned URL (no long PHP uploads).
-2. `StartTranscriptionJob` extracts audio, runs silencedetect, and cuts 30-90s chunks with 2s overlap.
-3. `ProcessTranscriptionChunkJob` transcribes each chunk (JP), translates to EN, and formats subtitle text.
-4. `FinalizeTranscriptionJob` deduplicates overlaps, rebases timestamps, and writes SRT/VTT.
+1. Upload MP4 to storage (direct upload).
+2. Choose subtitle source:
+   - Burned-in (OCR) for hardcoded Chinese subs.
+   - Embedded track for soft subs inside the MP4.
+   - Audio only (Whisper).
+   - Auto (OCR -> embedded -> audio).
+3. Translate to English.
+4. Export SRT + VTT.
 
 ## Requirements
 
 - PHP 8.5+
-- ffmpeg + ffprobe available on PATH
-- Queue worker running (`database` queue is default)
-- S3-compatible storage (or local disk for dev)
+- ffmpeg + ffprobe on PATH
+- Queue worker running (database queue by default)
+- Storage disk configured (local or S3-compatible)
+- OCR (for burned-in subtitles): `tesseract` + Simplified Chinese language pack (`chi_sim`)
+- STT:
+  - OpenAI Whisper API, or
+  - whisper.cpp with a multilingual model (not `.en`)
+- Translation API (Azure or DeepL)
 
-## Quick start
+## System dependencies (install first)
+
+### macOS (Homebrew)
 
 ```bash
+brew install ffmpeg tesseract
+# Ensure Simplified Chinese language data exists:
+# If missing, install additional language packs:
+brew install tesseract-lang
+```
+
+### Ubuntu / Debian
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ffmpeg tesseract-ocr tesseract-ocr-chi-sim
+```
+
+### Verify installs
+
+```bash
+ffmpeg -version
+ffprobe -version
+tesseract --version
+tesseract --list-langs | grep chi_sim
+```
+
+## Installation
+
+```bash
+composer install
+npm install
+cp .env.example .env
+php artisan key:generate
+touch database/database.sqlite
 php artisan migrate
-php artisan queue:work
+```
+
+### Start the app (recommended)
+
+```bash
+composer run dev
+```
+
+This starts the web server, queue worker, logs, and Vite.
+
+If you prefer running manually:
+
+```bash
+php artisan serve
+php artisan queue:work --queue=translations,default --sleep=1 --tries=1 --timeout=3600
 npm run dev
 ```
 
-Then visit `/dashboard` to upload an MP4 and monitor progress.
-
 ## Environment configuration
 
-Set these in `.env` (see `.env.example` for full list):
+Common settings in `.env` (see `.env.example` for the full list):
 
 ```dotenv
+# Storage
 TRANSCRIBE_STORAGE_DISK=transcriptions
-TRANSCRIBE_STORAGE_DRIVER=s3   # or local for dev
-
-# S3 (or MinIO) configuration
-TRANSCRIBE_S3_BUCKET=your-bucket
-TRANSCRIBE_S3_ENDPOINT=https://s3.your-provider.com
-TRANSCRIBE_S3_URL=
+TRANSCRIBE_STORAGE_DRIVER=local   # or s3
 
 # STT (Whisper)
+TRANSCRIBE_STT_DRIVER=whisper
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=https://api.openai.com
 OPENAI_WHISPER_MODEL=whisper-1
 
-# Translation (DeepL)
+# whisper.cpp (optional)
+WHISPER_CPP_BIN=whisper-cli
+WHISPER_CPP_MODEL=/path/to/model.bin   # must be multilingual for Chinese
+
+# Translation
+TRANSCRIBE_TRANSLATION_DRIVER=deepl    # or azure
 DEEPL_API_KEY=...
 DEEPL_BASE_URL=https://api.deepl.com
-DEEPL_FORMALITY=default
+
+# OCR for burned-in subtitles
+TRANSCRIBE_OCR_ENABLED=true
+TRANSCRIBE_OCR_BINARY=tesseract
+TRANSCRIBE_OCR_LANGUAGE=chi_sim
+TRANSCRIBE_OCR_FPS=2
+TRANSCRIBE_OCR_CROP_WIDTH=0.8
+TRANSCRIBE_OCR_CROP_HEIGHT=0.2
+TRANSCRIBE_OCR_CROP_BOTTOM_PADDING=0.03
 ```
 
-## Storage notes
+## Usage
 
-- `TRANSCRIBE_STORAGE_DRIVER=s3` uses presigned uploads.
-- `TRANSCRIBE_STORAGE_DRIVER=local` uses a signed upload endpoint and is intended for dev-only, small files.
-- Local files live in `storage/app/private/transcriptions`.
+1. Open `/dashboard`.
+2. Upload an MP4.
+3. Select **Source language** (Japanese or Chinese).
+4. Pick **Subtitle source**:
+   - **Burned-in (OCR)** for hardcoded Chinese subtitles.
+   - **Embedded track** for soft subs inside the MP4.
+   - **Auto** to try OCR -> embedded -> audio.
+   - **Audio only** to force Whisper.
+5. Click **Queue Transcription**.
+6. Download SRT/VTT when completed.
 
-## Queueing
+## Subtitle sources explained
 
-Processing is fully queued. Start a worker:
+- **Burned-in (OCR)**: Crops the bottom-center band and runs Tesseract (best for your case).
+- **Embedded track**: Extracts subtitle streams inside the MP4 container.
+- **Auto**: Tries OCR, then embedded track, then audio.
+- **Audio only**: Always uses Whisper STT.
 
-```bash
-php artisan queue:work
-```
-
-## ffmpeg / ffprobe commands (reference)
-
-Audio extraction:
-
-```bash
-ffmpeg -y -i input.mp4 -vn -ac 1 -ar 16000 -f wav output.wav
-```
-
-Silence detection:
-
-```bash
-ffmpeg -i output.wav -af silencedetect=noise=-30dB:d=0.6 -f null -
-```
-
-Chunk cutting:
-
-```bash
-ffmpeg -y -ss 68.000 -t 32.000 -i output.wav -ac 1 -ar 16000 -f wav chunk-2.wav
-```
-
-Duration probe:
-
-```bash
-ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 output.wav
-```
+Note: Auto is the only mode that falls back. If you explicitly choose Burned-in or Embedded and no subtitles are found, the run fails.
 
 ## Testing
 
-```bash
-php artisan test --compact tests/Unit/SilenceDetectorTest.php
-```
-
-Run the full suite when ready:
+This project requires tests to run with an in-memory SQLite DB:
 
 ```bash
-php artisan test --compact
+APP_ENV=testing DB_CONNECTION=sqlite DB_DATABASE=':memory:' php artisan test --compact
 ```
+
+## Troubleshooting OCR quality
+
+If OCR misses text or has low accuracy, adjust these:
+- `TRANSCRIBE_OCR_CROP_WIDTH` / `TRANSCRIBE_OCR_CROP_HEIGHT` / `TRANSCRIBE_OCR_CROP_BOTTOM_PADDING`
+- `TRANSCRIBE_OCR_FPS` (higher = more accurate but slower)
+- `TRANSCRIBE_OCR_FILTERS` (contrast/sharpen filters)
+
+If UI changes do not show up, run `npm run dev` or `composer run dev`.

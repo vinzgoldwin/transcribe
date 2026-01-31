@@ -50,6 +50,14 @@ class TranscriptionController extends Controller
                 'default_stop_after' => $this->normalizeStopAfter(
                     (string) config('transcribe.pipeline.stop_after', 'whisper'),
                 ),
+                'default_source_language' => $this->normalizeSourceLanguage(
+                    (string) config('transcribe.language.default', 'ja'),
+                ),
+                'source_languages' => $this->sourceLanguageOptions(),
+                'default_subtitle_source' => $this->defaultSubtitleSourceForLanguage(
+                    $this->normalizeSourceLanguage((string) config('transcribe.language.default', 'ja')),
+                ),
+                'subtitle_source_by_language' => (array) config('transcribe.subtitle.default_source_by_language', []),
             ],
         ]);
     }
@@ -61,6 +69,30 @@ class TranscriptionController extends Controller
         $stopAfter = $this->normalizeStopAfter(
             $request->string('stop_after')->toString(),
         );
+        $sourceLanguage = $this->normalizeSourceLanguage(
+            $request->string('source_language')->toString(),
+        );
+        $subtitleSource = $this->normalizeSubtitleSource(
+            $request->string('subtitle_source')->toString(),
+            $sourceLanguage,
+        );
+        $preferSubtitles = $request->has('prefer_subtitles')
+            ? $request->boolean('prefer_subtitles')
+            : null;
+
+        if ($request->missing('subtitle_source') && $request->has('prefer_subtitles')) {
+            $subtitleSource = $preferSubtitles ? $subtitleSource : 'audio';
+        }
+
+        $meta = [
+            'stop_after' => $stopAfter,
+            'source_language' => $sourceLanguage,
+            'subtitle_source' => $subtitleSource,
+        ];
+
+        if ($preferSubtitles !== null) {
+            $meta['prefer_subtitles'] = $preferSubtitles;
+        }
 
         $transcription = Transcription::query()->create([
             'user_id' => $request->user()->id,
@@ -71,9 +103,7 @@ class TranscriptionController extends Controller
             'storage_disk' => $storageDisk,
             'storage_path' => $this->buildStoragePath($publicId, $request->string('filename')->toString()),
             'status' => TranscriptionStatus::Uploading,
-            'meta' => [
-                'stop_after' => $stopAfter,
-            ],
+            'meta' => $meta,
         ]);
 
         [$uploadUrl, $headers] = $this->presignUpload($transcription);
@@ -179,6 +209,9 @@ class TranscriptionController extends Controller
                 'error_message' => $transcription->error_message,
                 'srt_ready' => $transcription->srt_path !== null,
                 'vtt_ready' => $transcription->vtt_path !== null,
+                'subtitle_source' => $transcription->meta['subtitle_source'] ?? null,
+                'source_language' => $transcription->meta['source_language'] ?? null,
+                'subtitle_progress_percent' => $transcription->meta['subtitle_progress_percent'] ?? null,
                 'download_srt_url' => $transcription->srt_path
                     ? route('transcriptions.download', [$transcription, 'srt'])
                     : null,
@@ -201,6 +234,9 @@ class TranscriptionController extends Controller
             'error_message' => $transcription->error_message,
             'srt_ready' => $transcription->srt_path !== null,
             'vtt_ready' => $transcription->vtt_path !== null,
+            'subtitle_source' => $transcription->meta['subtitle_source'] ?? null,
+            'source_language' => $transcription->meta['source_language'] ?? null,
+            'subtitle_progress_percent' => $transcription->meta['subtitle_progress_percent'] ?? null,
         ]);
     }
 
@@ -292,5 +328,59 @@ class TranscriptionController extends Controller
         }
 
         return in_array($normalized, ['azure', 'deepl'], true) ? 'azure' : 'whisper';
+    }
+
+    protected function normalizeSourceLanguage(string $sourceLanguage): string
+    {
+        $normalized = strtolower(trim($sourceLanguage));
+        $supported = array_keys((array) config('transcribe.language.supported', []));
+
+        if ($normalized === '') {
+            $normalized = (string) config('transcribe.language.default', 'ja');
+            $normalized = strtolower(trim($normalized));
+        }
+
+        if (in_array($normalized, $supported, true)) {
+            return $normalized;
+        }
+
+        return in_array('ja', $supported, true) ? 'ja' : ($supported[0] ?? 'ja');
+    }
+
+    protected function normalizeSubtitleSource(string $subtitleSource, string $sourceLanguage): string
+    {
+        $normalized = strtolower(trim($subtitleSource));
+
+        if ($normalized === '') {
+            return $this->defaultSubtitleSourceForLanguage($sourceLanguage);
+        }
+
+        return in_array($normalized, ['auto', 'embedded', 'ocr', 'audio'], true)
+            ? $normalized
+            : $this->defaultSubtitleSourceForLanguage($sourceLanguage);
+    }
+
+    protected function defaultSubtitleSourceForLanguage(string $sourceLanguage): string
+    {
+        $defaultByLanguage = (array) config('transcribe.subtitle.default_source_by_language', []);
+        $defaultSource = (string) config('transcribe.subtitle.default_source', 'embedded');
+
+        return (string) ($defaultByLanguage[$sourceLanguage] ?? $defaultSource);
+    }
+
+    /**
+     * @return array<int, array{value: string, label: string}>
+     */
+    protected function sourceLanguageOptions(): array
+    {
+        $supported = (array) config('transcribe.language.supported', []);
+
+        return collect($supported)
+            ->map(fn (array $config, string $value): array => [
+                'value' => $value,
+                'label' => (string) ($config['label'] ?? strtoupper($value)),
+            ])
+            ->values()
+            ->all();
     }
 }

@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 env_created=0
 install_whisper_cpp=0
 install_ffmpeg=0
+install_tesseract=0
 skip_whisper_cpp=0
 
 get_env_value() {
@@ -165,6 +166,47 @@ ensure_ffmpeg() {
     fi
 }
 
+ensure_tesseract() {
+    if command -v tesseract >/dev/null 2>&1; then
+        if tesseract --list-langs 2>/dev/null | grep -q 'chi_sim'; then
+            return 0
+        fi
+    fi
+
+    if [ "$install_tesseract" -eq 0 ]; then
+        echo "Warning: missing optional tools: tesseract (chi_sim language pack)"
+        echo "OCR requires tesseract with Simplified Chinese data."
+        return 0
+    fi
+
+    local os
+    os="$(uname -s)"
+
+    if [ "$os" = "Darwin" ]; then
+        if ! command -v brew >/dev/null 2>&1; then
+            echo "Missing Homebrew. Install brew or install tesseract manually."
+            return 1
+        fi
+        brew install tesseract
+        brew install tesseract-lang
+    elif [ "$os" = "Linux" ]; then
+        if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y tesseract-ocr tesseract-ocr-chi-sim
+        elif command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y tesseract tesseract-langpack-chi_sim
+        elif command -v pacman >/dev/null 2>&1; then
+            sudo pacman -S --noconfirm tesseract tesseract-data-chi_sim
+        else
+            echo "No supported package manager found. Install tesseract + chi_sim manually."
+            return 1
+        fi
+    else
+        echo "Unsupported OS: $os. Install tesseract manually."
+        return 1
+    fi
+}
+
 print_usage() {
     cat <<'EOF'
 Usage: ./bootstrap.sh [options]
@@ -175,6 +217,7 @@ Options:
   --skip-tests    Skip running the bootstrap test.
   --install-whisper-cpp  Install whisper.cpp + model using paths in .env.
   --install-ffmpeg       Auto-install ffmpeg/ffprobe if missing (requires sudo).
+  --install-ocr          Auto-install tesseract + chi_sim language pack (requires sudo).
   --skip-whisper-cpp     Skip whisper.cpp setup (useful if you only use API STT).
   -h, --help      Show this help.
 EOF
@@ -200,6 +243,9 @@ while [ $# -gt 0 ]; do
             ;;
         --install-ffmpeg)
             install_ffmpeg=1
+            ;;
+        --install-ocr)
+            install_tesseract=1
             ;;
         --skip-whisper-cpp)
             skip_whisper_cpp=1
@@ -234,6 +280,7 @@ if [ "${#missing_tools[@]}" -ne 0 ]; then
 fi
 
 ensure_ffmpeg
+ensure_tesseract
 
 if [ ! -f .env ]; then
     cp .env.example .env
