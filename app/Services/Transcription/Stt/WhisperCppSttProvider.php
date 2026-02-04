@@ -112,6 +112,7 @@ class WhisperCppSttProvider implements SttProvider
         if ($this->noGpu) {
             $command[] = '-ng';
         }
+
         $command[] = $format === 'json' ? '--output-json' : '--output-srt';
 
         return $command;
